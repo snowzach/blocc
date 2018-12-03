@@ -1,0 +1,50 @@
+syntax="proto3";
+package btc;
+
+option go_package = "git.coinninja.net/backend/blocc/blocc/btc";
+
+
+message Block {
+    string hash = 1;
+    int32 stripped_size = 2;
+    int32 size = 3;
+    int32 weight = 4;
+    int64 height = 5;
+    int32 version = 6;
+    string version_hex = 7;
+    string merkle_root = 8;
+    int64 timestamp = 9;
+    uint32 nonce = 10;
+    string bits = 11;
+    double difficulty = 12;
+    string prev_hash = 13;
+    string next_hash = 14;
+    repeated string tx = 15;
+    int64 confirmations = 16;
+}
+
+message Transaction {
+    int32 version = 1;
+    bytes hash = 2;
+    repeated TxIn txin = 3;
+    repeated TxOut txout = 4;
+    repeated bytes tx_witness = 5;
+    uint32 lock_time = 6;
+    int64 fee = 7;
+}
+
+message TxIn {
+    bytes prev_hash = 1;
+    uint32 prev_index = 2;
+    int64 value = 3;
+    bytes script = 4;
+    uint32 sequence = 5;
+}
+
+message TxOut {
+    int64 value = 1;
+    string addr_type = 2;
+    bytes script = 3;
+    repeated string addresses = 4;
+}
+
