@@ -22,22 +22,28 @@ type Extractor struct {
 	peer        *peer.Peer
 	chainParams *chaincfg.Params
 	bs          BlockStore
+	mp          TxMemPool
 
 	sync.WaitGroup
 }
 
-type BlockStore interface {
-	InitBTC() error
-	InsertBlockBTC(*Block) error
-	UpsertBlockBTC(*Block) error
-	FindBlocksBTC() ([]*Block, error)
-}
-
-func Extract(bs BlockStore) (*Extractor, error) {
+func Extract(bs BlockStore, mp TxMemPool) (*Extractor, error) {
 
 	e := &Extractor{
 		logger: zap.S().With("package", "block.btc"),
 		bs:     bs,
+		mp:     mp,
+	}
+
+	// Initialize the blockstore for BTC
+	err := e.bs.InitBTC()
+	if err != nil {
+		return nil, fmt.Errorf("Could not InitBTC BlockStore: %s", err)
+	}
+
+	err = e.mp.Init()
+	if err != nil {
+		return nil, fmt.Errorf("Could not Init TxMemPool: %s", err)
 	}
 
 	// Create an array of chains such that we can pick the one we want
@@ -69,6 +75,7 @@ func Extract(bs BlockStore) (*Extractor, error) {
 		TrickleInterval:  time.Second * 10,
 		Listeners: peer.MessageListeners{
 			OnBlock: e.OnBlock,
+			OnTx:    e.OnTx,
 			OnInv:   e.OnInv,
 			OnVerAck: func(p *peer.Peer, msg *wire.MsgVerAck) {
 				close(ready)
@@ -80,7 +87,6 @@ func Extract(bs BlockStore) (*Extractor, error) {
 	}
 
 	// Create peer connection
-	var err error
 	e.peer, err = peer.NewOutboundPeer(peerConfig, net.JoinHostPort(config.GetString("bitcoind.host"), config.GetString("bitcoind.port")))
 	if err != nil {
 		return nil, fmt.Errorf("Could not create outbound peer: %v", err)
@@ -103,7 +109,10 @@ func Extract(bs BlockStore) (*Extractor, error) {
 	}
 
 	// Get Some Block
-	e.RequestBlocks("0000000000000000001dc99dba99a662fbd923c5c50efec19782be8fe1de1d7f", "0")
+	// e.RequestBlocks("0000000000000000001dc99dba99a662fbd923c5c50efec19782be8fe1de1d7f", "0")
+
+	// Get the mempool
+	e.RequestMemPool()
 
 	return e, nil
 
@@ -131,6 +140,19 @@ func (e *Extractor) RequestBlocks(start string, stop string) error {
 	}
 
 	return nil
+
+}
+
+func (e *Extractor) RequestMemPool() {
+	e.peer.QueueMessage(wire.NewMsgMemPool(), nil)
+}
+
+func (e *Extractor) OnTx(p *peer.Peer, msg *wire.MsgTx) {
+
+	e.handleTx(msg)
+	e.logger.Debugw("TX Cached",
+		"tx", msg.TxHash(),
+	)
 
 }
 

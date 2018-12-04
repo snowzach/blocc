@@ -65,6 +65,12 @@ func init() {
 	config.SetDefault("elasticsearch.refresh_interval", "30s")
 	config.SetDefault("elasticsearch.wipe_confirm", false)
 
+	// Redis Settings
+	config.SetDefault("redis.host", "redis")
+	config.SetDefault("redis.port", "6379")
+	config.SetDefault("redis.password", "")
+	config.SetDefault("redis.index", 0)
+
 	// Bitcoin network settings
 	config.SetDefault("bitcoind.host", "bitcoind")
 	config.SetDefault("bitcoind.port", 8333)

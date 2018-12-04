@@ -6,6 +6,7 @@ import (
 
 	"git.coinninja.net/backend/blocc/blocc/btc"
 	"git.coinninja.net/backend/blocc/blockstore/esearch"
+	"git.coinninja.net/backend/blocc/cache/redis"
 	"git.coinninja.net/backend/blocc/conf"
 )
 
@@ -27,15 +28,17 @@ var (
 			if err != nil {
 				logger.Fatalw("BlockStore Error", "error", err)
 			}
-			err = bs.InitBTC()
+
+			var mp btc.TxMemPool
+			mp, err = redis.New(btc.Symbol + ":mempool:")
 			if err != nil {
-				logger.Fatalw("BlockStore Error", "error", err)
+				logger.Fatalw("BlockCache Error", "error", err)
 			}
 
 			// Start the extractor
-			_, err = btc.Extract(bs)
+			_, err = btc.Extract(bs, mp)
 			if err != nil {
-				logger.Fatalw("Could not create Client",
+				logger.Fatalw("Could not create Extractor",
 					"error", err,
 				)
 			}

@@ -9,7 +9,7 @@ import (
 func (e *esearch) InitBTC() error {
 
 	// Index
-	indexExists, err := e.client.IndexExists(e.index + "-btc").Do(e.ctx)
+	indexExists, err := e.client.IndexExists(e.index + "-" + btc.Symbol).Do(e.ctx)
 	if err != nil {
 		return fmt.Errorf("Failed to check if index exists: %v", err)
 	}
@@ -18,7 +18,7 @@ func (e *esearch) InitBTC() error {
 	}
 
 	// Create the index
-	createIndex, err := e.client.CreateIndex(e.index + "-btc").Do(e.ctx)
+	createIndex, err := e.client.CreateIndex(e.index + "-" + btc.Symbol).Do(e.ctx)
 	if err != nil {
 		return fmt.Errorf("Failed to create Elasticsearch index: %v", err)
 	}
@@ -27,22 +27,22 @@ func (e *esearch) InitBTC() error {
 	}
 
 	// Create an alias to the linked index
-	resp, err := e.client.Alias().Add(e.index+"-btc", e.index).Do(e.ctx)
+	resp, err := e.client.Alias().Add(e.index+"-"+btc.Symbol, e.index).Do(e.ctx)
 	if err != nil {
-		return fmt.Errorf("Unable to link index: %s -> %s error: %v", e.index, e.index+"-btc", err)
+		return fmt.Errorf("Unable to link index: %s -> %s error: %v", e.index, e.index+"-"+btc.Symbol, err)
 	}
 	if !resp.Acknowledged {
-		return fmt.Errorf("Failed to receive acknowledgement on index link: %s -> %s", e.index, e.index+"-*")
+		return fmt.Errorf("Failed to receive acknowledgement on index link: %s -> %s", e.index, e.index+"-"+btc.Symbol)
 	}
 	return nil
 
 }
 
 // Insert
-func (e *esearch) InsertBlockBTC(b *btc.Block) error {
+func (e *esearch) InsertBTCBlock(b *btc.Block) error {
 
 	_, err := e.client.Index().
-		Index(e.index + "-btc").
+		Index(e.index + "-" + btc.Symbol).
 		Type(e.index).
 		Id(b.Hash).
 		BodyJson(b).
@@ -52,10 +52,10 @@ func (e *esearch) InsertBlockBTC(b *btc.Block) error {
 }
 
 // Upsert
-func (e *esearch) UpsertBlockBTC(b *btc.Block) error {
+func (e *esearch) UpsertBTCBlock(b *btc.Block) error {
 
 	_, err := e.client.Update().
-		Index(e.index + "-btc").
+		Index(e.index + "-" + btc.Symbol).
 		Type(e.index).
 		Id(b.Hash).
 		Doc(b).
@@ -64,6 +64,6 @@ func (e *esearch) UpsertBlockBTC(b *btc.Block) error {
 
 }
 
-func (e *esearch) FindBlocksBTC() ([]*btc.Block, error) {
+func (e *esearch) FindBTCBlocks() ([]*btc.Block, error) {
 	return nil, nil
 }

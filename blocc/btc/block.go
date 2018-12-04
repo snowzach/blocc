@@ -1,16 +1,33 @@
 package btc
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strconv"
-	// "github.com/golang/protobuf/ptypes"
+	"time"
 
 	// "github.com/btcsuite/btcd/chaincfg"
 	// "github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/wire"
 )
+
+const Symbol = "btc"
+
+type BlockStore interface {
+	InitBTC() error
+	InsertBTCBlock(*Block) error
+	UpsertBTCBlock(*Block) error
+	FindBTCBlocks() ([]*Block, error)
+}
+
+type TxMemPool interface {
+	Init() error
+	Set(string, interface{}, time.Duration) error
+	Delete(string) error
+	Get(string, interface{}) error
+}
 
 func (e *Extractor) handleBlock(in *wire.MsgBlock, size int) {
 
@@ -24,18 +41,29 @@ func (e *Extractor) handleBlock(in *wire.MsgBlock, size int) {
 	out.VersionHex = fmt.Sprintf("%08x", in.Header.Version)
 	out.MerkleRoot = in.Header.MerkleRoot.String()
 	out.Nonce = in.Header.Nonce
-	out.Timestamp = in.Header.Timestamp.UTC().Unix()
+	out.Time = in.Header.Timestamp.UTC().Unix()
 	out.Bits = strconv.FormatInt(int64(in.Header.Bits), 16)
 	out.Weight = int32((in.SerializeSizeStripped() * (4 - 1)) + in.SerializeSize()) // WitnessScaleFactor = 4
 	out.Difficulty = e.getDifficultyRatio(in.Header.Bits)
 	out.Tx = make([]string, len(in.Transactions), len(in.Transactions))
 
-	for x, tx := range in.Transactions {
-		out.Tx[x] = tx.TxHash().String()
+	for x, inTx := range in.Transactions {
+		out.Tx[x] = inTx.TxHash().String()
 
-		// 	mtx := new(Tx)
-		// 	mtx.Version = tx.Version
-		// 	mtx.Hash = Hash(tx.TxHash())
+		outTx := new(Transaction)
+		outTx.Version = inTx.Version
+		outTx.Hash = inTx.TxHash().String()
+
+		err := e.mp.Delete(outTx.Hash)
+		if err != nil {
+			e.logger.Errorw("Could not BlockCache DeleteBTCTransaction", "error", err)
+		}
+
+		// err := e.bc.InsertBTCTransaction("tx", outTx, 10*time.Minute)
+		// if err != nil {
+		// 	e.logger.Errorw("Could not BlockCache InsertBlockBTC", "error", err)
+		// }
+
 		// 	mtx.TxIn = make([]*TxIn, len(tx.TxIn), len(tx.TxIn))
 		// 	for y, txin := range tx.TxIn {
 		// 		mtx.TxIn[y] = &TxIn{
@@ -72,11 +100,32 @@ func (e *Extractor) handleBlock(in *wire.MsgBlock, size int) {
 
 	}
 
-	err := e.bs.InsertBlockBTC(out)
+	err := e.bs.InsertBTCBlock(out)
 	if err != nil {
-		e.logger.Errorw("Could not InsertBlockBTC", "error", err)
+		e.logger.Errorw("Could not BlockStore InsertBlockBTC", "error", err)
 	}
 
+}
+
+func (e *Extractor) handleTx(in *wire.MsgTx) {
+
+	outTx := new(Transaction)
+	outTx.Version = in.Version
+	outTx.Hash = in.TxHash().String()
+
+	err := e.mp.Set(outTx.Hash, outTx, 10*time.Minute)
+	if err != nil {
+		e.logger.Errorw("Could not BlockCache InsertBlockBTC", "error", err)
+	}
+
+}
+
+func (tx *Transaction) MarshalBinary() ([]byte, error) {
+	return json.Marshal(tx)
+}
+
+func (tx *Block) MarshalBinary() ([]byte, error) {
+	return json.Marshal(tx)
 }
 
 // getDifficultyRatio returns the proof-of-work difficulty as a multiple of the

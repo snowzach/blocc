@@ -21,6 +21,7 @@ type esearch struct {
 
 	url    string
 	client *elastic.Client
+	bulk   *elastic.BulkProcessor
 	ctx    context.Context
 
 	index string
@@ -120,6 +121,15 @@ func New() (*esearch, error) {
 			return nil, fmt.Errorf("Could not ApplyIndexTemplate: %v", err)
 		}
 
+	}
+
+	// Start up the bulk processor
+	e.bulk, err = e.client.BulkProcessor().
+		Name("bulk").
+		FlushInterval(5 * time.Second).
+		Do(e.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("Could not start BulkProcessor: %s", err)
 	}
 
 	return e, nil

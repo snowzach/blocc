@@ -13,7 +13,7 @@ message Block {
     int32 version = 6;
     string version_hex = 7;
     string merkle_root = 8;
-    int64 timestamp = 9;
+    int64 time = 9;
     uint32 nonce = 10;
     string bits = 11;
     double difficulty = 12;
@@ -25,19 +25,30 @@ message Block {
 
 message Transaction {
     int32 version = 1;
-    bytes hash = 2;
-    repeated TxIn txin = 3;
-    repeated TxOut txout = 4;
-    repeated bytes tx_witness = 5;
-    uint32 lock_time = 6;
-    int64 fee = 7;
+    string block_hash = 2;
+    int64 block_height = 3;
+    int64 block_time = 4;
+    bool coin_base = 5;
+    string hash = 6;
+    string txid = 7;
+    int64 height = 8;
+    int64 time = 9;
+    int64 lock_time = 10;
+    int64 received_time = 11;
+    int32 size = 12;
+    int32 vsize = 13;
+    int32 weight = 14;
+    repeated TxIn vin = 15;
+    repeated TxOut vout = 16;
+    repeated bytes tx_witness = 17;
+    int64 fee = 18;
 }
 
 message TxIn {
-    bytes prev_hash = 1;
+    string prev_hash = 1;
     uint32 prev_index = 2;
     int64 value = 3;
-    bytes script = 4;
+    string script = 4;
     uint32 sequence = 5;
 }
 
