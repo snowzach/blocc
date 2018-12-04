@@ -27,6 +27,7 @@ type Extractor struct {
 }
 
 type BlockStore interface {
+	InitBTC() error
 	InsertBlockBTC(*Block) error
 	UpsertBlockBTC(*Block) error
 	FindBlocksBTC() ([]*Block, error)

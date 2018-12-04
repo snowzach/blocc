@@ -1,4 +1,3 @@
-PUT /btc
 {
     "settings": {
         "index": {
@@ -9,7 +8,7 @@ PUT /btc
         }
     },
     "mappings": {
-        "btc": {
+        "blocc": {
             "dynamic_templates": [
                 {
                     "object_as_object": {

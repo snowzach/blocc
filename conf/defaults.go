@@ -59,7 +59,7 @@ func init() {
 	config.SetDefault("elasticsearch.port", "9200")
 	config.SetDefault("elasticsearch.retries", 5)
 	config.SetDefault("elasticsearch.sleep_between_retries", "5s")
-	config.SetDefault("elasticsearch.index", "btcc")
+	config.SetDefault("elasticsearch.index", "blocc")
 	config.SetDefault("elasticsearch.index_replicas", 0)
 	config.SetDefault("elasticsearch.index_shards", 5)
 	config.SetDefault("elasticsearch.refresh_interval", "30s")

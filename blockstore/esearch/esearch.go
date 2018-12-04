@@ -115,6 +115,11 @@ func New() (*esearch, error) {
 			return nil, fmt.Errorf("Could not wipe: %v", err)
 		}
 
+		err = e.ApplyIndexTemplate()
+		if err != nil {
+			return nil, fmt.Errorf("Could not ApplyIndexTemplate: %v", err)
+		}
+
 	}
 
 	return e, nil
@@ -129,13 +134,13 @@ func (e *esearch) ApplyIndexTemplate() error {
 	// Get the default mapping from the mapping file
 	rawMapping, err := ioutil.ReadFile(config.GetString("elasticsearch.mapping_file"))
 	if err != nil {
-		return fmt.Errorf("Could not retrieve mapping from %s", config.GetString("elasticsearch.mapping_file"))
+		return fmt.Errorf("Could not retrieve mapping from %s error: %s", config.GetString("elasticsearch.mapping_file"), err)
 	}
 
 	// Copy the mapping structure to a map we can modify
 	err = json.Unmarshal(rawMapping, &mapping)
 	if err != nil {
-		return fmt.Errorf("Could not parse mapping JSON from %s", config.GetString("elasticsearch.mapping_file"))
+		return fmt.Errorf("Could not parse mapping JSON from %s error %s", config.GetString("elasticsearch.mapping_file"), err)
 	}
 
 	// Update the default mapping settings based on passed in options
@@ -167,6 +172,7 @@ func (e *esearch) ApplyIndexTemplate() error {
 	}
 
 	return nil
+
 }
 
 // Force a refresh of an index
@@ -180,7 +186,7 @@ func (e *esearch) Refresh() error {
 func (e *esearch) wipe() error {
 
 	// Delete indexes
-	deleteIndexResp, err := e.client.DeleteIndex(e.index).Do(e.ctx)
+	deleteIndexResp, err := e.client.DeleteIndex(e.index + "-*").Do(e.ctx)
 	if elastic.IsNotFound(err) {
 		// We're good
 	} else if elastic.IsStatusCode(err, 400) {
