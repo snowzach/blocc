@@ -1,16 +1,17 @@
 package btc
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"strconv"
 	"time"
 
-	// "github.com/btcsuite/btcd/chaincfg"
-	// "github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/blockchain"
+	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/btcsuite/btcutil"
 )
 
 const Symbol = "btc"
@@ -47,63 +48,24 @@ func (e *Extractor) handleBlock(in *wire.MsgBlock, size int) {
 	out.Difficulty = e.getDifficultyRatio(in.Header.Bits)
 	out.Tx = make([]string, len(in.Transactions), len(in.Transactions))
 
+	// out.Height =
+	// out.NextHash =
+	// out.Confirmations =
+
 	for x, inTx := range in.Transactions {
 		out.Tx[x] = inTx.TxHash().String()
 
-		outTx := new(Transaction)
-		outTx.Version = inTx.Version
-		outTx.Hash = inTx.TxHash().String()
-
-		err := e.mp.Delete(outTx.Hash)
+		// This transaction is part of a block, remove it from the mempool
+		err := e.mp.Delete(inTx.TxHash().String())
 		if err != nil {
 			e.logger.Errorw("Could not BlockCache DeleteBTCTransaction", "error", err)
 		}
-
-		// err := e.bc.InsertBTCTransaction("tx", outTx, 10*time.Minute)
-		// if err != nil {
-		// 	e.logger.Errorw("Could not BlockCache InsertBlockBTC", "error", err)
-		// }
-
-		// 	mtx.TxIn = make([]*TxIn, len(tx.TxIn), len(tx.TxIn))
-		// 	for y, txin := range tx.TxIn {
-		// 		mtx.TxIn[y] = &TxIn{
-		// 			PreviousOutPoint: OutPoint{
-		// 				Hash:  Hash(txin.PreviousOutPoint.Hash),
-		// 				Index: txin.PreviousOutPoint.Index,
-		// 			},
-		// 			// SignatureScript: txin.SignatureScript,
-		// 			Witness:  TxWitness(txin.Witness),
-		// 			Sequence: txin.Sequence,
-		// 		}
-		// 	}
-		// 	mtx.TxOut = make([]*TxOut, len(tx.TxOut), len(tx.TxOut))
-		// 	for z, txout := range tx.TxOut {
-		// 		if txout == nil {
-		// 			continue
-		// 		}
-		// 		addrtype, addrs, _, _ := txscript.ExtractPkScriptAddrs(txout.PkScript, &chaincfg.MainNetParams)
-		// 		addrstring := make([]string, len(addrs), len(addrs))
-		// 		for w, addr := range addrs {
-		// 			addrstring[w] = addr.String()
-		// 		}
-		// 		mtx.TxOut[z] = &TxOut{
-		// 			Value: txout.Value,
-		// 			// PkScript:  txout.PkScript,
-		// 			AddrType:  addrtype.String(),
-		// 			Addresses: addrstring,
-		// 		}
-		// 		// fmt.Printf("A:%v B:%v E:%v ADD:%v\n", a, b, err, add)
-		// 	}
-		// 	mtx.LockTime = tx.LockTime
-
-		// 	out.Transactions[x] = mtx
-
 	}
 
-	err := e.bs.InsertBTCBlock(out)
-	if err != nil {
-		e.logger.Errorw("Could not BlockStore InsertBlockBTC", "error", err)
-	}
+	// err := e.bs.InsertBTCBlock(out)
+	// if err != nil {
+	// 	e.logger.Errorw("Could not BlockStore InsertBlockBTC", "error", err)
+	// }
 
 }
 
@@ -111,9 +73,62 @@ func (e *Extractor) handleTx(in *wire.MsgTx) {
 
 	outTx := new(Transaction)
 	outTx.Version = in.Version
-	outTx.Hash = in.TxHash().String()
+	outTx.LockTime = int64(in.LockTime)
+	outTx.Txid = in.TxHash().String()
+	outTx.Hash = in.WitnessHash().String()
+	outTx.Size = int32(in.SerializeSize())
+	outTx.Vsize = int32(in.SerializeSizeStripped())
+	outTx.Time = time.Now().UTC().Unix()
+	outTx.ReceivedTime = time.Now().UTC().Unix()
+	outTx.Weight = (outTx.Vsize * (4 - 1)) + outTx.Size // WitnessScaleFactor = 4
 
-	err := e.mp.Set(outTx.Hash, outTx, 10*time.Minute)
+	// Handle TxIn
+	outTx.Vin = make([]*TxIn, len(in.TxIn), len(in.TxIn))
+	for x, tx := range in.TxIn {
+		newTx := &TxIn{
+			Txid: tx.PreviousOutPoint.Hash.String(),
+			Vout: tx.PreviousOutPoint.Index,
+			SigScript: &SigScript{
+				Hex: hex.EncodeToString(tx.SignatureScript),
+			},
+			Txwitness: parseWitness(tx.Witness),
+			Sequence:  tx.Sequence,
+		}
+		// Need to resolve previous out point
+		// newTx.Value
+		outTx.Vin[x] = newTx
+	}
+
+	// Handle TxOut
+	outTx.Vout = make([]*TxOut, len(in.TxOut), len(in.TxOut))
+	for x, tx := range in.TxOut {
+
+		scriptClass, addresses, reqSigs, err := txscript.ExtractPkScriptAddrs(tx.PkScript, e.chainParams)
+		if err != nil {
+			e.logger.Warnw("Could not decode PkScript", "error", err)
+		}
+
+		newTx := &TxOut{
+			N:     int32(x),
+			Value: tx.Value,
+			PkScript: &PkScript{
+				Hex:       hex.EncodeToString(tx.PkScript),
+				Type:      scriptClass.String(),
+				Addresses: parseBTCAddresses(addresses),
+				ReqSigs:   int32(reqSigs),
+			},
+		}
+		outTx.Vout[x] = newTx
+	}
+
+	// outTx.BlockHash
+	// outTx.BlockHeight
+	// outTx.BlockTime
+	// outTx.Height = position in block
+	// outTx.CoinBase
+	// outTx.Fee - calculate
+
+	err := e.mp.Set(outTx.Hash, outTx, 14*24*time.Hour)
 	if err != nil {
 		e.logger.Errorw("Could not BlockCache InsertBlockBTC", "error", err)
 	}
@@ -126,6 +141,22 @@ func (tx *Transaction) MarshalBinary() ([]byte, error) {
 
 func (tx *Block) MarshalBinary() ([]byte, error) {
 	return json.Marshal(tx)
+}
+
+func parseWitness(in [][]byte) []string {
+	ret := make([]string, len(in), len(in))
+	for x, y := range in {
+		ret[x] = hex.EncodeToString(y)
+	}
+	return ret
+}
+
+func parseBTCAddresses(in []btcutil.Address) []string {
+	ret := make([]string, len(in), len(in))
+	for x, y := range in {
+		ret[x] = y.String()
+	}
+	return ret
 }
 
 // getDifficultyRatio returns the proof-of-work difficulty as a multiple of the

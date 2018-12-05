@@ -8,6 +8,7 @@ require (
 	github.com/ajg/form v0.0.0-20160822230020-523a5da1a92f // indirect
 	github.com/aws/aws-sdk-go v1.15.88 // indirect
 	github.com/btcsuite/btcd v0.0.0-20181130015935-7d2daa5bfef2
+	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
 	github.com/cznic/b v0.0.0-20181122101859-a26611c4d92d // indirect
 	github.com/cznic/fileutil v0.0.0-20181122101858-4d67cfea8c87 // indirect
 	github.com/cznic/golex v0.0.0-20181122101858-9c343928389c // indirect

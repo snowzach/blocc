@@ -71,7 +71,7 @@ func New() (*esearch, error) {
 
 	var err error
 
-	for retries := config.GetInt("elasticsearch.retries"); retries > 0 && !conf.StopFlag; retries-- {
+	for retries := config.GetInt("elasticsearch.retries"); retries > 0 && !conf.Stop.Bool(); retries-- {
 		e.client, err = elastic.NewClient(esOptions...)
 		if err != nil {
 			if strings.Contains(err.Error(), "connection refused") {
@@ -89,7 +89,7 @@ func New() (*esearch, error) {
 	}
 
 	// Aborted before connected
-	if conf.StopFlag {
+	if conf.Stop.Bool() {
 		return nil, fmt.Errorf("Connection to elasticsearch aborted")
 	}
 
@@ -106,7 +106,7 @@ func New() (*esearch, error) {
 		time.Sleep(4 * time.Second)
 
 		// If the stop flag hasn't been set, we're ready to go
-		if conf.StopFlag {
+		if conf.Stop.Bool() {
 			return nil, fmt.Errorf("Wipe aborted.")
 		}
 

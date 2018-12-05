@@ -121,7 +121,6 @@ func Extract(bs BlockStore, mp TxMemPool) (*Extractor, error) {
 //
 func (e *Extractor) RequestBlocks(start string, stop string) error {
 
-	// Starting hash - "0000000000000000001dc99dba99a662fbd923c5c50efec19782be8fe1de1d7f"
 	startHash, err := chainhash.NewHashFromStr(start)
 	if err != nil {
 		return fmt.Errorf("NewHashFromStr: error %v\n", err)
