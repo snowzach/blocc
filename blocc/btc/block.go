@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"math/big"
 	"strconv"
-	"time"
 
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/txscript"
@@ -14,172 +13,99 @@ import (
 	"git.coinninja.net/backend/blocc/store"
 )
 
-func (e *Extractor) handleBlock(in *wire.MsgBlock, size int) {
+func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 
-	e.logger.Debugf("Handling Block: %s", in.BlockHash().String())
+	e.logger.Infow("Handling Block", "block_id", wBlk.BlockHash().String())
 
-	b := &store.Block{
-		Type:        "block",
+	// Build the store.Block
+	blk := &store.Block{
+		Type:        store.TypeBlock,
 		Symbol:      Symbol,
-		BlockId:     in.BlockHash().String(),
-		PrevBlockId: in.Header.PrevBlock.String(),
-		Time:        in.Header.Timestamp.UTC().Unix(),
-		TxIds:       make([]string, len(in.Transactions), len(in.Transactions)),
+		BlockId:     wBlk.BlockHash().String(),
+		PrevBlockId: wBlk.Header.PrevBlock.String(),
+		Time:        wBlk.Header.Timestamp.UTC().Unix(),
+		TxIds:       make([]string, len(wBlk.Transactions), len(wBlk.Transactions)),
 		Raw:         new(store.Raw),
 	}
-	in.Serialize(b.Raw)
+	wBlk.Serialize(blk.Raw)
 
-	// // Translate from wire.MsgBlock to our proto block format
-	// out := new(Block)
-	// out.Type = "blk"
-	// out.Hash = in.BlockHash().String()
-	// out.PrevHash = in.Header.PrevBlock.String()
-	// out.StrippedSize = int32(in.SerializeSizeStripped())
-	// out.Size = int32(size)
-	// out.Version = in.Header.Version
-	// out.VersionHex = fmt.Sprintf("%08x", in.Header.Version)
-	// out.MerkleRoot = in.Header.MerkleRoot.String()
-	// out.Nonce = in.Header.Nonce
-	// out.Time = in.Header.Timestamp.UTC().Unix()
-	// out.Bits = strconv.FormatInt(int64(in.Header.Bits), 16)
-	// out.Weight = int32((in.SerializeSizeStripped() * (4 - 1)) + in.SerializeSize()) // WitnessScaleFactor = 4
-	// out.Difficulty = e.getDifficultyRatio(in.Header.Bits)
-	// out.Tx = make([]string, len(in.Transactions), len(in.Transactions))
+	for x, wTx := range wBlk.Transactions {
+		// Build list of transaction ids
+		blk.TxIds[x] = wTx.TxHash().String()
 
-	// out.Height =
-	// out.NextHash =
-	// out.Confirmations =
-
-	for x, inTx := range in.Transactions {
-		b.TxIds[x] = inTx.TxHash().String()
-
-		// This transaction is part of a block, remove it from the mempool
-		err := e.ts.DeleteTransaction(Symbol, inTx.TxHash().String())
-		if err != nil {
-			e.logger.Errorw("Could not BlockCache DeleteBTCTransaction", "error", err)
-		}
-
-		e.handleTx(in, int32(x), inTx)
+		// Handle a transaction
+		e.handleTx(wBlk, int32(x), wTx)
 	}
 
-	err := e.bs.InsertBlock(Symbol, b)
-	if err != nil {
-		e.logger.Errorw("Could not BlockStore InsertBlockBTC", "error", err)
-	}
-
-}
-
-func (e *Extractor) handleTx(blk *wire.MsgBlock, height int32, in *wire.MsgTx) {
-
-	t := &store.Tx{
-		Type:      "tx",
-		Symbol:    Symbol,
-		TxId:      in.TxHash().String(),
-		Raw:       new(store.Raw),
-		Addresses: make([]string, 0),
-	}
-	in.Serialize(t.Raw)
-
-	// var raw = bytes.NewBuffer()
-	// blk.Serialize(raw)
-
-	// outTx := new(Transaction)
-	// outTx.Type = "tx"
-	// outTx.Version = in.Version
-	// outTx.LockTime = int64(in.LockTime)
-	// outTx.Txid = in.TxHash().String()
-	// outTx.Hash = in.WitnessHash().String()
-	// outTx.Size = int32(in.SerializeSize())
-	// outTx.Vsize = int32(in.SerializeSizeStripped())
-	// outTx.Time = time.Now().UTC().Unix()
-	// outTx.ReceivedTime = time.Now().UTC().Unix()
-	// outTx.Weight = (outTx.Vsize * (4 - 1)) + outTx.Size // WitnessScaleFactor = 4
-
-	// // Handle TxIn
-	// outTx.Vin = make([]*TxIn, len(in.TxIn), len(in.TxIn))
-	// for x, tx := range in.TxIn {
-	// 	newTx := &TxIn{
-	// 		Txid: tx.PreviousOutPoint.Hash.String(),
-	// 		Vout: tx.PreviousOutPoint.Index,
-	// 		SigScript: &SigScript{
-	// 			Hex: hex.EncodeToString(tx.SignatureScript),
-	// 		},
-	// 		Txwitness: parseWitness(tx.Witness),
-	// 		Sequence:  tx.Sequence,
-	// 	}
-	// 	// Need to resolve previous out point
-	// 	// newTx.Value
-	// 	outTx.Vin[x] = newTx
-	// }
-
-	// // Handle TxOut
-	// outTx.Vout = make([]*TxOut, len(in.TxOut), len(in.TxOut))
-	// for x, tx := range in.TxOut {
-
-	// 	scriptClass, addresses, reqSigs, err := txscript.ExtractPkScriptAddrs(tx.PkScript, e.chainParams)
-	// 	if err != nil {
-	// 		e.logger.Warnw("Could not decode PkScript", "error", err)
-	// 	}
-
-	// 	newTx := &TxOut{
-	// 		N:     int32(x),
-	// 		Value: tx.Value,
-	// 		PkScript: &PkScript{
-	// 			Hex:       hex.EncodeToString(tx.PkScript),
-	// 			Type:      scriptClass.String(),
-	// 			Addresses: parseBTCAddresses(addresses),
-	// 			ReqSigs:   int32(reqSigs),
-	// 		},
-	// 	}
-	// 	outTx.Vout[x] = newTx
-	// }
-
-	// // outTx.CoinBase
-	// // outTx.Fee - calculate
-	// outTx.BlockHash = blk.BlockHash().String()
-	// outTx.BlockTime = blk.Header.Timestamp.UTC().Unix()
-	// outTx.Height = pos
-	// // outTx.BlockHeight
-
-	// Append the destination addresses
-	for _, tx := range in.TxOut {
-		_, addresses, _, err := txscript.ExtractPkScriptAddrs(tx.PkScript, e.chainParams)
-		if err != nil {
-			e.logger.Warnw("Could not decode PkScript", "error", err)
-		}
-		t.Addresses = append(t.Addresses, parseBTCAddresses(addresses)...)
-	}
-
-	if blk != nil {
-
-		t.Height = int64(height)
-		t.BlockId = blk.BlockHash().String()
-		t.Time = blk.Header.Timestamp.UTC().Unix()
-		t.BlockTime = blk.Header.Timestamp.UTC().Unix()
-
-		err := e.bs.InsertTransaction(Symbol, t)
+	// if blockstore is activated, store the block
+	if e.bs != nil {
+		err := e.bs.InsertBlock(Symbol, blk)
 		if err != nil {
 			e.logger.Errorw("Could not BlockStore InsertBlockBTC", "error", err)
 		}
+	}
+
+}
+
+func (e *Extractor) handleTx(wBlk *wire.MsgBlock, height int32, wTx *wire.MsgTx) {
+
+	// Build the store.Tx
+	tx := &store.Tx{
+		Type:      store.TypeTx,
+		Symbol:    Symbol,
+		TxId:      wTx.TxHash().String(),
+		Raw:       new(store.Raw),
+		Addresses: make([]string, 0),
+	}
+	wTx.Serialize(tx.Raw)
+
+	// TODO: Fetch the source addesses from the blockstore
+
+	// Append the destination addresses
+	for _, vout := range wTx.TxOut {
+		_, addresses, _, err := txscript.ExtractPkScriptAddrs(vout.PkScript, e.chainParams)
+		if err != nil {
+			e.logger.Warnw("Could not decode PkScript", "error", err)
+		}
+		tx.Addresses = append(tx.Addresses, parseBTCAddresses(addresses)...)
+	}
+
+	// If this transaction came as part of a block, add block metadata
+	if wBlk != nil {
+		tx.Height = int64(height)
+		tx.BlockId = wBlk.BlockHash().String()
+		tx.Time = wBlk.Header.Timestamp.UTC().Unix()
+		tx.BlockTime = wBlk.Header.Timestamp.UTC().Unix()
+
+		// Insert it into the blockstore
+		if e.bs != nil {
+			err := e.bs.InsertTransaction(Symbol, tx)
+			if err != nil {
+				e.logger.Errorw("Could not BlockStore InsertTransaction", "error", err)
+			}
+		}
+
+		// If we have a txStore, remove this transaction if it exists
+		if e.ts != nil {
+			err := e.ts.DeleteTransaction(Symbol, tx.TxId)
+			if err != nil {
+				e.logger.Errorw("Could not TxStore DeleteTransaction", "error", err)
+			}
+		}
 
 	} else {
-		// Store it in the transaction store for 2 weeks
-		err := e.ts.InsertTransaction(Symbol, t, 14*24*time.Hour)
-		if err != nil {
-			e.logger.Errorw("Could not BlockCache InsertBlockBTC", "error", err)
+		// Store it in the transaction store
+		if e.ts != nil {
+			err := e.ts.InsertTransaction(Symbol, tx, e.txLifetime)
+			if err != nil {
+				e.logger.Errorw("Could not TxStore InsertTransaction", "error", err)
+			}
 		}
 	}
 
 }
 
-// func (tx *Transaction) MarshalBinary() ([]byte, error) {
-// 	return json.Marshal(tx)
-// }
-
-// func (tx *Block) MarshalBinary() ([]byte, error) {
-// 	return json.Marshal(tx)
-// }
-
+// This converts [][]byte (witnesses) to []string
 func parseWitness(in [][]byte) []string {
 	ret := make([]string, len(in), len(in))
 	for x, y := range in {
@@ -188,6 +114,7 @@ func parseWitness(in [][]byte) []string {
 	return ret
 }
 
+// This coverts []btcutil.Address to []string
 func parseBTCAddresses(in []btcutil.Address) []string {
 	ret := make([]string, len(in), len(in))
 	for x, y := range in {

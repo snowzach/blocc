@@ -29,7 +29,10 @@ type Extractor struct {
 	ts          blocc.TxStore
 	ms          blocc.MetricStore
 
-	blocksInProcess chan struct{}
+	throttleBlocks chan struct{}
+	throttleTxns   chan struct{}
+
+	txLifetime time.Duration
 
 	sync.WaitGroup
 }
@@ -37,30 +40,41 @@ type Extractor struct {
 func Extract(bs blocc.BlockStore, ts blocc.TxStore, ms blocc.MetricStore) (*Extractor, error) {
 
 	e := &Extractor{
-		logger: zap.S().With("package", "block.btc"),
+		logger: zap.S().With("package", "blocc.btc"),
 		bs:     bs,
 		ts:     ts,
 		ms:     ms,
 
-		blocksInProcess: make(chan struct{}, 30),
+		throttleBlocks: make(chan struct{}, config.GetInt("extractor.throttle_blocks")),
+		throttleTxns:   make(chan struct{}, config.GetInt("extractor.throttle_transactions")),
+
+		txLifetime: config.GetDuration("extractor.transaction_lifetime"),
 	}
 
+	var err error
+
 	// Initialize the BlockStore for BTC
-	err := e.bs.Init(Symbol)
-	if err != nil {
-		return nil, fmt.Errorf("Could not Init BlockStore: %s", err)
+	if bs != nil {
+		err = e.bs.Init(Symbol)
+		if err != nil {
+			return nil, fmt.Errorf("Could not Init BlockStore: %s", err)
+		}
 	}
 
 	// Initialize the TxStore for BTC
-	err = e.ts.Init(Symbol)
-	if err != nil {
-		return nil, fmt.Errorf("Could not Init TxStore: %s", err)
+	if ts != nil {
+		err = e.ts.Init(Symbol)
+		if err != nil {
+			return nil, fmt.Errorf("Could not Init TxStore: %s", err)
+		}
 	}
 
 	// Initialize the MetricStire for BTC
-	err = e.ms.Init(Symbol)
-	if err != nil {
-		return nil, fmt.Errorf("Could not Init MetricStore: %s", err)
+	if ms != nil {
+		err = e.ms.Init(Symbol)
+		if err != nil {
+			return nil, fmt.Errorf("Could not Init MetricStore: %s", err)
+		}
 	}
 
 	// Create an array of chains such that we can pick the one we want
@@ -129,13 +143,14 @@ func Extract(bs blocc.BlockStore, ts blocc.TxStore, ms blocc.MetricStore) (*Extr
 		return nil, fmt.Errorf("Never got verack ready message")
 	}
 
+	e.logger.Infow("Connected to peer", "peer", e.peer.Addr())
+
 	// Get Some Block
 	// Genesis
 	// e.RequestBlocks("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f", "0")
-
 	// e.RequestBlocks("0000000000000000001dc99dba99a662fbd923c5c50efec19782be8fe1de1d7f", "0")
 
-	// Get the mempool
+	// Get the mempool from the peer
 	e.RequestMemPool()
 
 	return e, nil
@@ -173,28 +188,20 @@ func (e *Extractor) RequestMemPool() {
 
 // OnTx is called when we receive a transaction
 func (e *Extractor) OnTx(p *peer.Peer, msg *wire.MsgTx) {
-
-	go e.handleTx(nil, 0, msg)
-	// e.logger.Debugw("TX Cached",
-	// 	"tx", msg.TxHash(),
-	// )
-
+	e.throttleTxns <- struct{}{}
+	go func() {
+		e.handleTx(nil, 0, msg)
+		<-e.throttleTxns
+	}()
 }
 
 // OnBlock is called when we receive a block message
 func (e *Extractor) OnBlock(p *peer.Peer, msg *wire.MsgBlock, buf []byte) {
-
-	e.blocksInProcess <- struct{}{}
-
+	e.throttleBlocks <- struct{}{}
 	go func() {
 		e.handleBlock(msg, len(buf))
-		<-e.blocksInProcess
+		<-e.throttleBlocks
 	}()
-	// e.logger.Debugw("Block Inserted",
-	// 	"block", msg.BlockHash(),
-	// 	"length", len(buf),
-	// )
-
 }
 
 // OnInv is called when the peer reports it has an inventory item
@@ -203,9 +210,9 @@ func (e *Extractor) OnInv(p *peer.Peer, msg *wire.MsgInv) {
 	// OnInv is invoked when a peer receives an inv bitcoin message. This is essentially the peer saying I have this piece of information
 	// We immediately request that piece of information if it's a transaction or a block
 	for _, iv := range msg.InvList {
-		e.logger.Debugw("Got Inv", "type", iv.Type)
 		switch iv.Type {
 		case wire.InvTypeTx:
+			e.logger.Debugw("Got Inv", "type", iv.Type, "txid", iv.Hash.String())
 			msg := wire.NewMsgGetData()
 			err := msg.AddInvVect(iv)
 			if err != nil {
@@ -213,6 +220,7 @@ func (e *Extractor) OnInv(p *peer.Peer, msg *wire.MsgInv) {
 			}
 			p.QueueMessage(msg, nil)
 		case wire.InvTypeBlock:
+			e.logger.Debugw("Got Inv", "type", iv.Type, "txid", iv.Hash.String())
 			msg := wire.NewMsgGetData()
 			err := msg.AddInvVect(iv)
 			if err != nil {

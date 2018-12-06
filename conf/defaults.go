@@ -55,7 +55,7 @@ func init() {
 	config.SetDefault("elasticsearch.request_log", false)
 	config.SetDefault("elasticsearch.debug", false)
 	config.SetDefault("elasticsearch.sniff", true)
-	config.SetDefault("elasticsearch.host", "elasticsearch")
+	config.SetDefault("elasticsearch.host", "") // Override back to host when ready to use
 	config.SetDefault("elasticsearch.port", "9200")
 	config.SetDefault("elasticsearch.retries", 5)
 	config.SetDefault("elasticsearch.sleep_between_retries", "5s")
@@ -80,5 +80,8 @@ func init() {
 	// Extractor settings
 	config.SetDefault("extractor.start_hash", "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
 	config.SetDefault("extractor.start_height", 0)
+	config.SetDefault("extractor.throttle_blocks", 30)
+	config.SetDefault("extractor.throttle_transactions", 100)
+	config.SetDefault("extractor.transaction_lifetime", "336h") // 14 days
 
 }

@@ -3,6 +3,7 @@ package redis
 import (
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -15,6 +16,8 @@ import (
 const (
 	txPrefix  = "tx"
 	blkPrefix = "blk"
+
+	Delimeter = ":"
 )
 
 type cache struct {
@@ -23,11 +26,11 @@ type cache struct {
 	client redis.UniversalClient
 }
 
-func New(prefix string) (*cache, error) {
+func New(prefixes ...string) (*cache, error) {
 
 	c := &cache{
 		logger: zap.S().With("package", "cache.redis"),
-		prefix: prefix,
+		prefix: strings.Join(prefixes, Delimeter),
 	}
 
 	// Initialize client
@@ -97,7 +100,7 @@ func (c *cache) GetTransactionBytes(symbol string) (int64, error) {
 }
 
 func (c *cache) symPrefix(symbol string) string {
-	return c.prefix + ":" + symbol + ":"
+	return c.prefix + Delimeter + symbol + Delimeter
 }
 
 // // Get will fetch the entry from the cache

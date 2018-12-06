@@ -4,11 +4,13 @@ import (
 	cli "github.com/spf13/cobra"
 	"go.uber.org/zap"
 
+	config "github.com/spf13/viper"
+
 	"git.coinninja.net/backend/blocc/blocc"
 	"git.coinninja.net/backend/blocc/blocc/btc"
-	"git.coinninja.net/backend/blocc/cache/redis"
 	"git.coinninja.net/backend/blocc/conf"
 	"git.coinninja.net/backend/blocc/store/esearch"
+	"git.coinninja.net/backend/blocc/store/redis"
 )
 
 func init() {
@@ -30,19 +32,23 @@ var (
 			var ts blocc.TxStore
 
 			// Elastic will implement BlockStore
-			bs, err = esearch.New()
-			if err != nil {
-				logger.Fatalw("BlockStore Error", "error", err)
+			if config.GetString("elasticsearch.host") != "" {
+				bs, err = esearch.New()
+				if err != nil {
+					logger.Fatalw("BlockStore Error", "error", err)
+				}
+
+				// Elastic will also implement MetricStore
+				ms = bs
 			}
 
 			// Redis will implement the TxStore/MemPool
-			ts, err = redis.New(btc.Symbol + ":mempool:")
-			if err != nil {
-				logger.Fatalw("BlockCache Error", "error", err)
+			if config.GetString("redis.host") != "" {
+				ts, err = redis.New(btc.Symbol, "mempool")
+				if err != nil {
+					logger.Fatalw("BlockCache Error", "error", err)
+				}
 			}
-
-			// Elastic will also implement MetricStore
-			ms = bs
 
 			// Start the extractor
 			_, err = btc.Extract(bs, ts, ms)
