@@ -32,6 +32,7 @@ require (
 	github.com/golang/protobuf v1.2.0
 	github.com/googleapis/gax-go v2.0.2+incompatible // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
+	github.com/gorilla/websocket v1.4.0 // indirect
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/grpc-ecosystem/grpc-gateway v1.5.1
@@ -60,6 +61,7 @@ require (
 	github.com/prometheus/procfs v0.0.0-20181129180645-aa55a523dc0a // indirect
 	github.com/rs/xid v1.2.1
 	github.com/sergi/go-diff v1.0.0 // indirect
+	github.com/sirupsen/logrus v1.2.0 // indirect
 	github.com/smartystreets/goconvey v0.0.0-20181108003508-044398e4856c // indirect
 	github.com/snowzach/certtools v1.0.2
 	github.com/spf13/cast v1.3.0 // indirect
@@ -67,8 +69,8 @@ require (
 	github.com/spf13/pflag v1.0.3 // indirect
 	github.com/spf13/viper v1.2.1
 	github.com/stevvooe/resumable v0.0.0-20180830230917-22b14a53ba50 // indirect
-	github.com/stretchr/objx v0.1.1 // indirect
 	github.com/stretchr/testify v1.2.2
+	github.com/tmc/grpc-websocket-proxy v0.0.0-20171017195756-830351dc03c6
 	github.com/valyala/fasthttp v1.0.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect

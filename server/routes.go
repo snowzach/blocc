@@ -15,7 +15,7 @@ func (s *Server) SetupRoutes() {
 	// Register RPC Services
 	rpc.RegisterVersionRPCServer(s.grpcServer, s)
 	s.gwReg(rpc.RegisterVersionRPCHandlerFromEndpoint)
-	rpc.RegisterThingRPCServer(s.grpcServer, s)
-	s.gwReg(rpc.RegisterThingRPCHandlerFromEndpoint)
+	rpc.RegisterMemPoolRPCServer(s.grpcServer, s)
+	s.gwReg(rpc.RegisterMemPoolRPCHandlerFromEndpoint)
 
 }

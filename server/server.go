@@ -22,14 +22,18 @@ import (
 	"github.com/snowzach/certtools"
 	"github.com/snowzach/certtools/autocert"
 	config "github.com/spf13/viper"
+	"github.com/tmc/grpc-websocket-proxy/wsproxy"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 
-	"git.coinninja.net/backend/blocc/gogrpcapi"
+	"git.coinninja.net/backend/blocc/blocc"
 )
+
+// When starting to listen, we will reigster gateway functions
+type gwRegFunc func(ctx context.Context, mux *gwruntime.ServeMux, endpoint string, opts []grpc.DialOption) error
 
 // Server is the GRPC server
 type Server struct {
@@ -37,15 +41,14 @@ type Server struct {
 	router     chi.Router
 	server     *http.Server
 	grpcServer *grpc.Server
-	thingStore gogrpcapi.ThingStore
 	gwRegFuncs []gwRegFunc
+
+	defaultSymbol string
+	ts            blocc.TxStore
 }
 
-// When starting to listen, we will reigster gateway functions
-type gwRegFunc func(ctx context.Context, mux *gwruntime.ServeMux, endpoint string, opts []grpc.DialOption) error
-
 // New will setup the server
-func New(thingStore gogrpcapi.ThingStore) (*Server, error) {
+func New(ts blocc.TxStore) (*Server, error) {
 
 	// This router is used for http requests only, setup all of our middleware
 	r := chi.NewRouter()
@@ -102,8 +105,10 @@ func New(thingStore gogrpcapi.ThingStore) (*Server, error) {
 		logger:     zap.S().With("package", "server"),
 		router:     r,
 		grpcServer: g,
-		thingStore: thingStore,
 		gwRegFuncs: make([]gwRegFunc, 0),
+
+		defaultSymbol: config.GetString("server.default_symbol"),
+		ts:            ts,
 	}
 	s.server = &http.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -186,10 +191,6 @@ func (s *Server) ListenAndServe() error {
 		OrigName:     config.GetBool("server.rest.orig_names"),
 	})
 	grpcGatewayMux := gwruntime.NewServeMux(gwruntime.WithMarshalerOption(gwruntime.MIMEWildcard, &grpcGatewayJSONpbMarshaler))
-	// If the main router did not find and endpoint, pass it to the grpcGateway
-	s.router.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		grpcGatewayMux.ServeHTTP(w, r)
-	})
 
 	// Register all the GRPC gateway functions
 	for _, gwrf := range s.gwRegFuncs {
@@ -198,6 +199,14 @@ func (s *Server) ListenAndServe() error {
 			return fmt.Errorf("Could not register HTTP/gRPC gateway: %s", err)
 		}
 	}
+
+	// Wrap the grpcGateway in the websocket proxy helper
+	wsGrpcMux := wsproxy.WebsocketProxy(grpcGatewayMux)
+
+	// If the main router did not find and endpoint, pass it to the grpcGateway
+	s.router.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		wsGrpcMux.ServeHTTP(w, r)
+	})
 
 	go func() {
 		if err = s.server.Serve(listener); err != nil {

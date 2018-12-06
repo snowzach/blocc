@@ -4,7 +4,7 @@ package server;
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 
-option go_package = "github.com/snowzach/gogrpcapi/server/rpc";
+option go_package = "git.coinninja.net/backend/blocc/server/rpc";
 
 service VersionRPC {
 

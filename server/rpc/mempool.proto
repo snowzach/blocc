@@ -1,0 +1,36 @@
+syntax="proto3";
+package server;
+
+import "google/api/annotations.proto";
+
+option go_package = "git.coinninja.net/backend/blocc/server/rpc";
+
+service MemPoolRPC {
+
+    rpc GetMemPoolStats(Symbol) returns (MemPoolStats) {
+        option (google.api.http) = {
+            get: "/mempool/stats"
+        };
+    }
+
+    rpc GetMemPoolStream(Symbol) returns (stream Test) {
+        option (google.api.http) = {
+            get: "/mempool/stream"
+        };
+    }
+
+}
+
+message Symbol {
+    string symbol = 1;
+}
+
+message MemPoolStats {
+    int64 time = 1;
+    int64 count = 2;
+    int64 size = 3;
+}
+
+message Test {
+    string test = 1;
+}

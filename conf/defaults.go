@@ -36,6 +36,8 @@ func init() {
 	config.SetDefault("server.rest.enums_as_ints", false)
 	config.SetDefault("server.rest.emit_defaults", true)
 	config.SetDefault("server.rest.orig_names", true)
+	// Other options
+	config.SetDefault("server.default_symbol", "btc")
 
 	// Database Settings
 	config.SetDefault("storage.type", "postgres")
