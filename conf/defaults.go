@@ -75,4 +75,10 @@ func init() {
 	config.SetDefault("bitcoind.host", "bitcoind")
 	config.SetDefault("bitcoind.port", 8333)
 	config.SetDefault("bitcoind.chain", "mainnet")
+	config.SetDefault("bitcoind.debug_messages", false)
+
+	// Extractor settings
+	config.SetDefault("extractor.start_hash", "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
+	config.SetDefault("extractor.start_height", 0)
+
 }

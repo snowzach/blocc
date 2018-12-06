@@ -19,6 +19,15 @@
                     }
                 },
                 {
+                    "metric": {
+                        "match": "metric.*",
+                        "mapping": {
+                            "norms": false,
+                            "type": "double"
+                        }
+                    }
+                },
+                {
                     "timestamp": {
                         "match": "*timestamp",
                         "mapping": {
@@ -36,7 +45,36 @@
                         }
                     }
                 }
-            ]
+            ],
+            "properties": {
+                "type": {
+                    "type": "keyword"
+                },
+                "blockId": {
+                    "type": "keyword"
+                },
+                "height": {
+                    "type": "long"
+                },
+                "prevBlockId": {
+                    "type": "keyword"
+                },
+                "time": {
+                    "type": "long"
+                },
+                "blockTime": {
+                    "type": "long"
+                },
+                "address": {
+                    "type": "keyword"
+                },
+                "txId": {
+                    "type": "keyword"
+                },
+                "raw": {
+                    "type": "binary"
+                }
+            }
         }
     }
 }

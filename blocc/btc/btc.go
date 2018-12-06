@@ -3,6 +3,7 @@ package btc
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"sync"
 	"time"
 
@@ -14,36 +15,52 @@ import (
 	config "github.com/spf13/viper"
 	"go.uber.org/zap"
 
+	"git.coinninja.net/backend/blocc/blocc"
 	"git.coinninja.net/backend/blocc/conf"
 )
+
+const Symbol = "btc"
 
 type Extractor struct {
 	logger      *zap.SugaredLogger
 	peer        *peer.Peer
 	chainParams *chaincfg.Params
-	bs          BlockStore
-	mp          TxMemPool
+	bs          blocc.BlockStore
+	ts          blocc.TxStore
+	ms          blocc.MetricStore
+
+	blocksInProcess chan struct{}
 
 	sync.WaitGroup
 }
 
-func Extract(bs BlockStore, mp TxMemPool) (*Extractor, error) {
+func Extract(bs blocc.BlockStore, ts blocc.TxStore, ms blocc.MetricStore) (*Extractor, error) {
 
 	e := &Extractor{
 		logger: zap.S().With("package", "block.btc"),
 		bs:     bs,
-		mp:     mp,
+		ts:     ts,
+		ms:     ms,
+
+		blocksInProcess: make(chan struct{}, 30),
 	}
 
-	// Initialize the blockstore for BTC
-	err := e.bs.InitBTC()
+	// Initialize the BlockStore for BTC
+	err := e.bs.Init(Symbol)
 	if err != nil {
-		return nil, fmt.Errorf("Could not InitBTC BlockStore: %s", err)
+		return nil, fmt.Errorf("Could not Init BlockStore: %s", err)
 	}
 
-	err = e.mp.Init()
+	// Initialize the TxStore for BTC
+	err = e.ts.Init(Symbol)
 	if err != nil {
-		return nil, fmt.Errorf("Could not Init TxMemPool: %s", err)
+		return nil, fmt.Errorf("Could not Init TxStore: %s", err)
+	}
+
+	// Initialize the MetricStire for BTC
+	err = e.ms.Init(Symbol)
+	if err != nil {
+		return nil, fmt.Errorf("Could not Init MetricStore: %s", err)
 	}
 
 	// Create an array of chains such that we can pick the one we want
@@ -78,12 +95,16 @@ func Extract(bs BlockStore, mp TxMemPool) (*Extractor, error) {
 			OnTx:    e.OnTx,
 			OnInv:   e.OnInv,
 			OnVerAck: func(p *peer.Peer, msg *wire.MsgVerAck) {
+				e.logger.Debug("Got VerAck")
 				close(ready)
-				fmt.Printf("OnVerAck: peer:%v msg:%v\n", p, msg)
 			},
-			// OnRead:    e.OnRead,
-			// OnWrite:   e.OnWrite,
 		},
+	}
+
+	// Do we want to see debug messages
+	if config.GetBool("bitcoind.debug_messages") {
+		peerConfig.Listeners.OnRead = e.OnRead
+		peerConfig.Listeners.OnWrite = e.OnWrite
 	}
 
 	// Create peer connection
@@ -109,6 +130,9 @@ func Extract(bs BlockStore, mp TxMemPool) (*Extractor, error) {
 	}
 
 	// Get Some Block
+	// Genesis
+	// e.RequestBlocks("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f", "0")
+
 	// e.RequestBlocks("0000000000000000001dc99dba99a662fbd923c5c50efec19782be8fe1de1d7f", "0")
 
 	// Get the mempool
@@ -118,7 +142,7 @@ func Extract(bs BlockStore, mp TxMemPool) (*Extractor, error) {
 
 }
 
-//
+// RequestBlocks will send a GetBlocks Message to the peer
 func (e *Extractor) RequestBlocks(start string, stop string) error {
 
 	startHash, err := chainhash.NewHashFromStr(start)
@@ -142,60 +166,69 @@ func (e *Extractor) RequestBlocks(start string, stop string) error {
 
 }
 
+// RequestMemPool will send a request for the peers mempool
 func (e *Extractor) RequestMemPool() {
 	e.peer.QueueMessage(wire.NewMsgMemPool(), nil)
 }
 
+// OnTx is called when we receive a transaction
 func (e *Extractor) OnTx(p *peer.Peer, msg *wire.MsgTx) {
 
-	e.handleTx(msg)
-	e.logger.Debugw("TX Cached",
-		"tx", msg.TxHash(),
-	)
+	go e.handleTx(nil, 0, msg)
+	// e.logger.Debugw("TX Cached",
+	// 	"tx", msg.TxHash(),
+	// )
 
 }
 
+// OnBlock is called when we receive a block message
 func (e *Extractor) OnBlock(p *peer.Peer, msg *wire.MsgBlock, buf []byte) {
 
-	e.handleBlock(msg, len(buf))
-	e.logger.Debugw("Block Inserted",
-		"block", msg.BlockHash(),
-		"length", len(buf),
-	)
+	e.blocksInProcess <- struct{}{}
+
+	go func() {
+		e.handleBlock(msg, len(buf))
+		<-e.blocksInProcess
+	}()
+	// e.logger.Debugw("Block Inserted",
+	// 	"block", msg.BlockHash(),
+	// 	"length", len(buf),
+	// )
 
 }
 
+// OnInv is called when the peer reports it has an inventory item
 func (e *Extractor) OnInv(p *peer.Peer, msg *wire.MsgInv) {
 
-	// OnInv is invoked when a peer receives an inv bitcoin message.
-	fmt.Printf("OnInv: peer:%v msg:%v\n", p, msg)
+	// OnInv is invoked when a peer receives an inv bitcoin message. This is essentially the peer saying I have this piece of information
+	// We immediately request that piece of information if it's a transaction or a block
 	for _, iv := range msg.InvList {
-		fmt.Printf("InvVect: %s\n", iv)
+		e.logger.Debugw("Got Inv", "type", iv.Type)
 		switch iv.Type {
 		case wire.InvTypeTx:
-			fmt.Printf("InvTypeTx Hash: %s\n", iv.Hash)
 			msg := wire.NewMsgGetData()
 			err := msg.AddInvVect(iv)
 			if err != nil {
-				fmt.Printf("AddInvVect error: %v\n", err)
+				e.logger.Errorw("AddInvVect", "error", err)
 			}
 			p.QueueMessage(msg, nil)
 		case wire.InvTypeBlock:
-			fmt.Printf("InvTypeBlock Hash: %s\n", iv.Hash)
 			msg := wire.NewMsgGetData()
 			err := msg.AddInvVect(iv)
 			if err != nil {
-				fmt.Printf("AddInvVect error: %v\n", err)
+				e.logger.Errorw("AddInvVect", "error", err)
 			}
 			p.QueueMessage(msg, nil)
 		}
 	}
 }
 
-// func (e *Extractor) OnRead(p *peer.Peer, bytesRead int, msg wire.Message, err error) {
-// 	fmt.Printf("Got message(%d): %v error:%v\n", bytesRead, msg, err)
-// }
+// OnRead is a low level function to capture raw messages coming in
+func (e *Extractor) OnRead(p *peer.Peer, bytesRead int, msg wire.Message, err error) {
+	e.logger.Debugw("Got Message", "type", reflect.TypeOf(msg), "size", bytesRead, "error", err)
+}
 
-// func (e *Extractor) OnWrite(p *peer.Peer, bytesWritten int, msg wire.Message, err error) {
-// 	fmt.Printf("Sent message(%d): %v error:%v\n", bytesWritten, msg, err)
-// }
+// OnWrite is a low level function to capture raw message going out
+func (e *Extractor) OnWrite(p *peer.Peer, bytesWritten int, msg wire.Message, err error) {
+	e.logger.Debugw("Sent Message", "type", reflect.TypeOf(msg), "size", bytesWritten, "error", err)
+}

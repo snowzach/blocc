@@ -24,6 +24,8 @@ message Block {
     // int64 mediantime
     // string chainwork
     // int32 nTx
+
+    string type = 99;
 }
 
 // This describes a bitcoin transaction
@@ -42,12 +44,13 @@ message Transaction {
     // These are calculated/generated fields
     int64 received_time = 16;
     string block_hash = 17;
-    int64 block_height = 18;
+    int32 block_height = 18;
     int64 block_time = 19;
     bool coin_base = 20;
     int64 fee = 21;
-    int64 height = 22;
+    int32 height = 22;
 
+    string type = 99;
 }
 
 // TxIn is an input from a transaction
