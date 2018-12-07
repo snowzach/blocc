@@ -2,12 +2,12 @@ EXECUTABLE := bloccapi
 GITVERSION := $(shell git describe --dirty --always --tags --long)
 GOPATH ?= ${HOME}/go
 PACKAGENAME := $(shell go list -m -f '{{.Path}}')
-MIGRATIONDIR := store/postgres/migrations
-MIGRATIONS :=  $(wildcard ${MIGRATIONDIR}/*.sql)
+EMBEDDIR := embed
+EMBED := embed/mapping.json
 TOOLS := ${GOPATH}/bin/go-bindata \
 	${GOPATH}/bin/mockery \
-	${GOPATH}/src/github.com/golang/protobuf/proto \
-	${GOPATH}/bin/protoc-gen-go \
+	${GOPATH}/src/github.com/gogo/protobuf/proto \
+	${GOPATH}/bin/protoc-gen-gogoslick \
 	${GOPATH}/bin/protoc-gen-grpc-gateway \
 	${GOPATH}/bin/protoc-gen-swagger
 export PROTOBUF_INCLUDES = -I. -I/usr/include -I${GOPATH}/src -I$(shell go list -e -f '{{.Dir}}' .) -I$(shell go list -e -f '{{.Dir}}' github.com/grpc-ecosystem/grpc-gateway/runtime)/../third_party/googleapis
@@ -48,16 +48,16 @@ ${GOPATH}/bin/protoc-gen-swagger:
 %.pb.go: %.proto
 	protoc ${PROTOBUF_INCLUDES} --gogoslick_out=paths=source_relative,plugins=grpc:. $*.proto
 
-${MIGRATIONDIR}/bindata.go: ${MIGRATIONS}
+${EMBEDDIR}/bindata.go: ${EMBED}
 	# Building bindata
-	go-bindata -o ${MIGRATIONDIR}/bindata.go -prefix ${MIGRATIONDIR} -pkg migrations ${MIGRATIONDIR}/*.sql
+	go-bindata -o ${EMBEDDIR}/bindata.go -prefix ${EMBEDDIR} -pkg embed ${EMBED}
 
 .PHONY: mocks
 mocks: tools
 	# mockery -dir ./gogrpcapi -name ThingStore
 
 .PHONY: ${EXECUTABLE}
-${EXECUTABLE}: tools ${PROTOS} ${MIGRATIONDIR}/bindata.go
+${EXECUTABLE}: tools ${PROTOS} ${EMBEDDIR}/bindata.go
 	# Compiling...
 	go build -ldflags "-X ${PACKAGENAME}/conf.Executable=${EXECUTABLE} -X ${PACKAGENAME}/conf.GitVersion=${GITVERSION}" -o ${EXECUTABLE}
 

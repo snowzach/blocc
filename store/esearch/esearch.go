@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"git.coinninja.net/backend/blocc/conf"
+	"git.coinninja.net/backend/blocc/embed"
 )
 
 type esearch struct {
@@ -141,10 +142,20 @@ func (e *esearch) ApplyIndexTemplate() error {
 	// Load the index mapping
 	var mapping = make(map[string]interface{})
 
-	// Get the default mapping from the mapping file
-	rawMapping, err := ioutil.ReadFile(config.GetString("elasticsearch.mapping_file"))
-	if err != nil {
-		return fmt.Errorf("Could not retrieve mapping from %s error: %s", config.GetString("elasticsearch.mapping_file"), err)
+	// Get mapping file
+	var rawMapping []byte
+	var err error
+	if config.GetString("elasticsearch.mapping_file") == "" {
+		rawMapping, err = embed.Asset("mapping.json")
+		if err != nil {
+			return fmt.Errorf("Could not retrieve embedded mapping file: %v", err)
+		}
+	} else {
+		// Get the default mapping from the mapping file
+		rawMapping, err = ioutil.ReadFile(config.GetString("elasticsearch.mapping_file"))
+		if err != nil {
+			return fmt.Errorf("Could not retrieve mapping from %s error: %s", config.GetString("elasticsearch.mapping_file"), err)
+		}
 	}
 
 	// Copy the mapping structure to a map we can modify

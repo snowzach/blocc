@@ -53,7 +53,7 @@ func init() {
 	config.SetDefault("storage.wipe_confirm", false)
 
 	// Set Defaults - Elasticsearch
-	config.SetDefault("elasticsearch.mapping_file", "./mapping.json")
+	config.SetDefault("elasticsearch.mapping_file", "") // Defaults to loading embedded mapping.json if not specified
 	config.SetDefault("elasticsearch.request_log", false)
 	config.SetDefault("elasticsearch.debug", false)
 	config.SetDefault("elasticsearch.sniff", true)
