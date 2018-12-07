@@ -2,8 +2,6 @@ package blocc
 
 import (
 	"time"
-
-	"git.coinninja.net/backend/blocc/store"
 )
 
 // BlockStore is an interface that is used to get and store blocks and transactions
@@ -11,9 +9,9 @@ type BlockStore interface {
 	Init(symbol string) error
 	Flush(symbol string) error
 
-	InsertBlock(symbol string, blk *store.Block) error
-	UpsertBlock(symbol string, blk *store.Block) error
-	InsertTransaction(symbol string, blk *store.Tx) error
+	InsertBlock(symbol string, blk *Block) error
+	UpsertBlock(symbol string, blk *Block) error
+	InsertTransaction(symbol string, blk *Tx) error
 
 	// GetBlockHeight(symbol string) (int64, error)
 
@@ -31,7 +29,7 @@ type BlockStore interface {
 // TxStore will store transactions (mempool)
 type TxStore interface {
 	Init(symbol string) error
-	InsertTransaction(symbol string, tx *store.Tx, ttl time.Duration) error
+	InsertTransaction(symbol string, tx *Tx, ttl time.Duration) error
 	DeleteTransaction(symbol string, txId string) error
 	GetTransactionCount(symbol string) (int64, error)
 	GetTransactionBytes(symbol string) (int64, error)
@@ -48,12 +46,12 @@ type MetricStore interface {
 
 // TxMsgBus is an interface to subscribe to transactions
 type TxMsgBus interface {
-	Publish(symbol string, key string, tx *store.Tx) error
+	Publish(symbol string, key string, tx *Tx) error
 	Subscribe(symbol string, ket string) (TxChannel, error)
 }
 
 // TxChannel is a MsgBus channel for transactions
 type TxChannel interface {
-	Channel() <-chan *store.Tx
+	Channel() <-chan *Tx
 	Close()
 }

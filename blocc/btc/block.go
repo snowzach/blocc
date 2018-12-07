@@ -10,28 +10,36 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
 
-	"git.coinninja.net/backend/blocc/store"
+	"git.coinninja.net/backend/blocc/blocc"
 )
 
 func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 
 	e.logger.Infow("Handling Block", "block_id", wBlk.BlockHash().String())
 
-	// Build the store.Block
-	blk := &store.Block{
-		Type:        store.TypeBlock,
+	// Build the blocc.Block
+	blk := &blocc.Block{
+		Type:        blocc.TypeBlock,
 		Symbol:      Symbol,
 		BlockId:     wBlk.BlockHash().String(),
 		PrevBlockId: wBlk.Header.PrevBlock.String(),
 		Time:        wBlk.Header.Timestamp.UTC().Unix(),
-		TxIds:       make([]string, len(wBlk.Transactions), len(wBlk.Transactions)),
-		Raw:         new(store.Raw),
+		Txids:       make([]string, len(wBlk.Transactions), len(wBlk.Transactions)),
+		Metric:      make(map[string]float64),
+		Tag:         make(map[string]string),
 	}
-	wBlk.Serialize(blk.Raw)
+
+	// Write the raw block
+	// w := bytes.NewBuffer()
+	// wBlk.Serialize(w)
+	// blk.Raw = w.Bytes()
+
+	// Metrics
+	blk.Metric["size"] = float64(wBlk.SerializeSize())
 
 	for x, wTx := range wBlk.Transactions {
 		// Build list of transaction ids
-		blk.TxIds[x] = wTx.TxHash().String()
+		blk.Txids[x] = wTx.TxHash().String()
 
 		// Handle a transaction
 		e.handleTx(wBlk, int32(x), wTx)
@@ -49,17 +57,26 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 
 func (e *Extractor) handleTx(wBlk *wire.MsgBlock, height int32, wTx *wire.MsgTx) {
 
-	// Build the store.Tx
-	tx := &store.Tx{
-		Type:      store.TypeTx,
+	// Build the blocc.Tx
+	tx := &blocc.Tx{
+		Type:      blocc.TypeTx,
 		Symbol:    Symbol,
 		TxId:      wTx.TxHash().String(),
-		Raw:       new(store.Raw),
 		Addresses: make([]string, 0),
-		VinCount:  int64(len(wTx.TxIn)),
-		VoutCount: int64(len(wTx.TxOut)),
+		Metric:    make(map[string]float64),
+		Tag:       make(map[string]string),
 	}
-	wTx.Serialize(tx.Raw)
+
+	// Write the raw transaction
+	// w := bytes.NewBuffer()
+	// wTx.Serialize(w)
+	// wTx.Raw = w.Bytes()
+
+	// Metrics
+	tx.Metric["vin_count"] = float64(len(wTx.TxIn))
+	tx.Metric["vout_count"] = float64(len(wTx.TxOut))
+	tx.Metric["size"] = float64(wTx.SerializeSize())
+	tx.Metric["value"] = 0
 
 	// TODO: Fetch the source addesses from the blockstore
 
@@ -70,7 +87,7 @@ func (e *Extractor) handleTx(wBlk *wire.MsgBlock, height int32, wTx *wire.MsgTx)
 			e.logger.Warnw("Could not decode PkScript", "error", err)
 		}
 		tx.Addresses = append(tx.Addresses, parseBTCAddresses(addresses)...)
-		tx.Value += vout.Value
+		tx.Metric["value"] += float64(vout.Value)
 	}
 
 	// If this transaction came as part of a block, add block metadata

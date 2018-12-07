@@ -37,8 +37,6 @@ func (s *Server) GetMemPoolStats(ctx context.Context, input *rpc.Symbol) (*rpc.M
 // GetMemPoolStream streams mempool data
 func (s *Server) GetMemPoolStream(input *rpc.Symbol, server rpc.MemPoolRPC_GetMemPoolStreamServer) error {
 
-	s.logger.Info("TODO OVERRIDE WEBSOCKET LOGGER")
-
 	if input.Symbol == "" {
 		input.Symbol = s.defaultSymbol
 	}
@@ -52,7 +50,7 @@ func (s *Server) GetMemPoolStream(input *rpc.Symbol, server rpc.MemPoolRPC_GetMe
 	for {
 		select {
 		case tx := <-subChan:
-			server.Send(&rpc.Test{Test: tx.TxId})
+			server.Send(tx)
 		case <-server.Context().Done():
 			sub.Close()
 			return nil

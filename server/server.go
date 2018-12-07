@@ -120,7 +120,7 @@ func New(ts blocc.TxStore, mb blocc.TxMsgBus) (*Server, error) {
 				s.router.ServeHTTP(w, r)
 			}
 		}),
-		ErrorLog: log.New(&errorLogger{logger: s.logger}, "", 0),
+		ErrorLog: log.New(&serverLogger{logger: zap.S().With("package", "server.wsproxy")}, "", 0),
 	}
 
 	s.SetupRoutes()
@@ -202,8 +202,8 @@ func (s *Server) ListenAndServe() error {
 		}
 	}
 
-	// Wrap the grpcGateway in the websocket proxy helper
-	wsGrpcMux := wsproxy.WebsocketProxy(grpcGatewayMux)
+	// Wrap the grpcGateway in the websocket proxy helper and our server logger
+	wsGrpcMux := wsproxy.WebsocketProxy(grpcGatewayMux, wsproxy.WithLogger(&serverLogger{logger: s.logger}))
 
 	// If the main router did not find and endpoint, pass it to the grpcGateway
 	s.router.NotFound(func(w http.ResponseWriter, r *http.Request) {
@@ -232,15 +232,25 @@ func (s *Server) gwReg(gwrf gwRegFunc) {
 	s.gwRegFuncs = append(s.gwRegFuncs, gwrf)
 }
 
-// errorLogger is used for logging errors from the server
-type errorLogger struct {
+// serverLogger is a multi-purpose logger used for server error messsages and websocket interceptor messages
+type serverLogger struct {
 	logger *zap.SugaredLogger
 }
 
-// ErrorLogger implements an error logging function for the server
-func (el *errorLogger) Write(b []byte) (int, error) {
-	el.logger.Error(string(b))
+// Write is called by the server when there it an error
+func (sl *serverLogger) Write(b []byte) (int, error) {
+	sl.logger.Error(string(b))
 	return len(b), nil
+}
+
+// Warnln is called by the wsproxy for warning messages
+func (sl *serverLogger) Warnln(data ...interface{}) {
+	sl.logger.Warn(data...)
+}
+
+// Debugln is called by the wsproxy for warning messages
+func (sl *serverLogger) Debugln(data ...interface{}) {
+	sl.logger.Debug(data...)
 }
 
 // RenderOrErrInternal will render whatever you pass it (assuming it has Renderer) or prints an internal error

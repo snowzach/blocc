@@ -5,7 +5,7 @@ import (
 
 	"github.com/olivere/elastic"
 
-	"git.coinninja.net/backend/blocc/store"
+	"git.coinninja.net/backend/blocc/blocc"
 )
 
 func (e *esearch) Init(symbol string) error {
@@ -41,7 +41,7 @@ func (e *esearch) Init(symbol string) error {
 }
 
 // Insert
-func (e *esearch) InsertBlock(symbol string, b *store.Block) error {
+func (e *esearch) InsertBlock(symbol string, b *blocc.Block) error {
 
 	e.bulk.Add(elastic.NewBulkIndexRequest().
 		Index(e.indexName(symbol)).
@@ -53,7 +53,7 @@ func (e *esearch) InsertBlock(symbol string, b *store.Block) error {
 }
 
 // Upsert
-func (e *esearch) UpsertBlock(symbol string, b *store.Block) error {
+func (e *esearch) UpsertBlock(symbol string, b *blocc.Block) error {
 
 	_, err := e.client.Update().
 		Index(e.indexName(symbol)).
@@ -65,7 +65,7 @@ func (e *esearch) UpsertBlock(symbol string, b *store.Block) error {
 
 }
 
-func (e *esearch) InsertTransaction(symbol string, t *store.Tx) error {
+func (e *esearch) InsertTransaction(symbol string, t *blocc.Tx) error {
 
 	e.bulk.Add(elastic.NewBulkIndexRequest().
 		Index(e.indexName(symbol)).
@@ -110,7 +110,7 @@ func (e *esearch) GetBlockHeight(symbol string) (int64, error) {
 	return 0, nil
 }
 
-func (e *esearch) FindBlocks() ([]*store.Block, error) {
+func (e *esearch) FindBlocks() ([]*blocc.Block, error) {
 	return nil, nil
 }
 

@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-redis/redis"
 
-	"git.coinninja.net/backend/blocc/store"
+	"git.coinninja.net/backend/blocc/blocc"
 )
 
 // Init will clear the cache of any existing records
@@ -14,8 +14,13 @@ func (c *client) Init(symbol string) error {
 }
 
 // InsertTransaction will add a transaction
-func (c *client) InsertTransaction(symbol string, tx *store.Tx, expire time.Duration) error {
-	return c.client.Set(c.symPrefix(symbol)+tx.TxId, tx.Raw.Len(), expire).Err()
+func (c *client) InsertTransaction(symbol string, tx *blocc.Tx, expire time.Duration) error {
+	// Currently all we care about is size
+	size, ok := tx.Metric["size"]
+	if !ok {
+		size = 0
+	}
+	return c.client.Set(c.symPrefix(symbol)+tx.TxId, size, expire).Err()
 }
 
 // DeleteTransaction will remove a transaction

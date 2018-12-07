@@ -2,6 +2,7 @@ syntax="proto3";
 package server;
 
 import "google/api/annotations.proto";
+import "blocc/block.proto";
 
 option go_package = "git.coinninja.net/backend/blocc/server/rpc";
 
@@ -13,7 +14,7 @@ service MemPoolRPC {
         };
     }
 
-    rpc GetMemPoolStream(Symbol) returns (stream Test) {
+    rpc GetMemPoolStream(Symbol) returns (stream blocc.Tx) {
         option (google.api.http) = {
             get: "/mempool/stream"
         };

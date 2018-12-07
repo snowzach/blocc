@@ -6,7 +6,6 @@ import (
 	"github.com/go-redis/redis"
 
 	"git.coinninja.net/backend/blocc/blocc"
-	"git.coinninja.net/backend/blocc/store"
 )
 
 type channel struct {
@@ -15,7 +14,7 @@ type channel struct {
 }
 
 // Publish will publish a message to any listeners on the channel
-func (c *client) Publish(symbol string, key string, tx *store.Tx) error {
+func (c *client) Publish(symbol string, key string, tx *blocc.Tx) error {
 	data, err := json.Marshal(tx)
 	if err != nil {
 		return err
@@ -37,8 +36,8 @@ func (c *client) Subscribe(symbol string, key string) (blocc.TxChannel, error) {
 }
 
 // Channel get a channel of transaction
-func (c *channel) Channel() <-chan *store.Tx {
-	txChan := make(chan *store.Tx)
+func (c *channel) Channel() <-chan *blocc.Tx {
+	txChan := make(chan *blocc.Tx)
 	go func() {
 		subChan := c.sub.Channel()
 		for {
@@ -50,7 +49,7 @@ func (c *channel) Channel() <-chan *store.Tx {
 				return
 			}
 			//
-			tx := new(store.Tx)
+			tx := new(blocc.Tx)
 			err := json.Unmarshal([]byte(m.Payload), tx)
 			if err != nil {
 				c.client.logger.Errorw("Could not unmarshal tx", "error", err, "payload", m.Payload)

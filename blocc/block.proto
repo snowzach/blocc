@@ -1,0 +1,47 @@
+syntax="proto3";
+package blocc;
+
+option go_package = "git.coinninja.net/backend/blocc/blocc";
+
+message Block {
+    string type = 1;
+    string symbol = 2;
+    string block_id = 3;
+    int64 height = 4;
+    string prev_block_id = 5;
+    int64 time = 6;
+    repeated string addresses = 8;
+    repeated string txids = 9;
+    bytes raw = 10;
+
+    map<string, double> metric = 14;
+    map<string, string> tag = 15;
+}
+
+message Tx {
+    string type = 1;
+    string symbol = 2;
+    string block_id = 3;
+    string tx_id = 4;
+    int64 height = 5;
+    string prev_block_id = 6;
+    int64 time = 7;
+    int64 block_time = 8;
+    repeated string addresses = 10;
+    bytes raw = 11;
+
+    map<string, double> metric = 14;
+    map<string, string> tag = 15;
+}
+
+message Metric {
+    string type = 1;
+    string symbol = 2;
+    string block_id = 3;
+    string tx_id = 4;
+    int64 height = 5;
+    int64 time = 6;
+
+    map<string, double> metric = 14;
+    map<string, string> tag = 15;
+}
