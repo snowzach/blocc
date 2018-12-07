@@ -11,8 +11,7 @@ TOOLS := ${GOPATH}/bin/go-bindata \
 	${GOPATH}/bin/protoc-gen-grpc-gateway \
 	${GOPATH}/bin/protoc-gen-swagger
 export PROTOBUF_INCLUDES = -I. -I/usr/include -I${GOPATH}/src -I$(shell go list -e -f '{{.Dir}}' .) -I$(shell go list -e -f '{{.Dir}}' github.com/grpc-ecosystem/grpc-gateway/runtime)/../third_party/googleapis
-PROTOS := ./blocc/btc/btc.pb.go \
-	./blocc/block.pb.go \
+PROTOS := ./blocc/block.pb.go \
 	./server/rpc/mempool.pb.gw.go \
 	./server/rpc/version.pb.gw.go
 
@@ -54,7 +53,10 @@ ${EMBEDDIR}/bindata.go: ${EMBED}
 
 .PHONY: mocks
 mocks: tools
-	# mockery -dir ./gogrpcapi -name ThingStore
+	mockery -dir ./blocc -name BlockStore
+	mockery -dir ./blocc -name TxStore
+	mockery -dir ./blocc -name TxMsgBus
+	mockery -dir ./blocc -name TxChannel
 
 .PHONY: ${EXECUTABLE}
 ${EXECUTABLE}: tools ${PROTOS} ${EMBEDDIR}/bindata.go
@@ -62,7 +64,7 @@ ${EXECUTABLE}: tools ${PROTOS} ${EMBEDDIR}/bindata.go
 	go build -ldflags "-X ${PACKAGENAME}/conf.Executable=${EXECUTABLE} -X ${PACKAGENAME}/conf.GitVersion=${GITVERSION}" -o ${EXECUTABLE}
 
 .PHONY: test
-test: tools ${PROTOS} ${MIGRATIONDIR}/bindata.go mocks
+test: tools ${PROTOS} ${EMBEDDIR}/bindata.go mocks
 	go test -cover ./...
 
 .PHONY: deps

@@ -13,8 +13,9 @@ import (
 func TestVersionGet(t *testing.T) {
 
 	// Mock Store and server
-	ts := new(mocks.ThingStore)
-	s, err := New(ts)
+	ts := new(mocks.TxStore)
+	mb := new(mocks.TxMsgBus)
+	s, err := New(ts, mb)
 	assert.Nil(t, err)
 
 	response, err := s.Version(context.Background(), nil)

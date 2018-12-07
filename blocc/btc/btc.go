@@ -33,6 +33,9 @@ type Extractor struct {
 	throttleBlocks chan struct{}
 	throttleTxns   chan struct{}
 
+	storeRawBlocks       bool
+	storeRawTransactions bool
+
 	txLifetime time.Duration
 
 	sync.WaitGroup
@@ -47,10 +50,13 @@ func Extract(bs blocc.BlockStore, ts blocc.TxStore, ms blocc.MetricStore, mb blo
 		ms:     ms,
 		mb:     mb,
 
-		throttleBlocks: make(chan struct{}, config.GetInt("extractor.throttle_blocks")),
-		throttleTxns:   make(chan struct{}, config.GetInt("extractor.throttle_transactions")),
+		throttleBlocks: make(chan struct{}, config.GetInt("extractor.btc.throttle_blocks")),
+		throttleTxns:   make(chan struct{}, config.GetInt("extractor.btc.throttle_transactions")),
 
-		txLifetime: config.GetDuration("extractor.transaction_lifetime"),
+		storeRawBlocks:       config.GetBool("extractor.btc.store_raw_blocks"),
+		storeRawTransactions: config.GetBool("extractor.btc.store_raw_transactions"),
+
+		txLifetime: config.GetDuration("extractor.btc.transaction_lifetime"),
 	}
 
 	var err error

@@ -1,4 +1,5 @@
 // +build +other
+
 package btc
 
 // USED TO BUILD BLOCK

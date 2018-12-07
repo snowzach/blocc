@@ -1,6 +1,7 @@
 package btc
 
 import (
+	"bytes"
 	"encoding/hex"
 	"math/big"
 	"strconv"
@@ -30,9 +31,11 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 	}
 
 	// Write the raw block
-	// w := bytes.NewBuffer()
-	// wBlk.Serialize(w)
-	// blk.Raw = w.Bytes()
+	if e.storeRawBlocks {
+		var r = new(bytes.Buffer)
+		wBlk.Serialize(r)
+		blk.Raw = r.Bytes()
+	}
 
 	// Metrics
 	blk.Metric["size"] = float64(wBlk.SerializeSize())
@@ -68,9 +71,11 @@ func (e *Extractor) handleTx(wBlk *wire.MsgBlock, height int32, wTx *wire.MsgTx)
 	}
 
 	// Write the raw transaction
-	// w := bytes.NewBuffer()
-	// wTx.Serialize(w)
-	// wTx.Raw = w.Bytes()
+	if e.storeRawTransactions {
+		var r = new(bytes.Buffer)
+		wTx.Serialize(r)
+		tx.Raw = r.Bytes()
+	}
 
 	// Metrics
 	tx.Metric["vin_count"] = float64(len(wTx.TxIn))

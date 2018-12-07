@@ -20,6 +20,7 @@ require (
 	github.com/docker/distribution v2.6.2+incompatible // indirect
 	github.com/docker/docker v1.13.1 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
+	github.com/fortytw2/leaktest v1.3.0 // indirect
 	github.com/gavv/httpexpect v0.0.0-20180803094507-bdde30871313
 	github.com/gavv/monotime v0.0.0-20171021193802-6f8212e8d10d // indirect
 	github.com/go-chi/chi v3.3.3+incompatible
@@ -74,6 +75,7 @@ require (
 	github.com/stretchr/testify v1.2.2
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20171017195756-830351dc03c6
 	github.com/valyala/fasthttp v1.0.0 // indirect
+	github.com/vektra/mockery v0.0.0-20181123154057-e78b021dcbb5 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v0.0.0-20181112162635-ac52e6811b56 // indirect
@@ -90,7 +92,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20181128211412-28207608b838 // indirect
 	golang.org/x/sync v0.0.0-20181108010431-42b317875d0f // indirect
 	golang.org/x/sys v0.0.0-20181128092732-4ed8d59d0b35 // indirect
-	golang.org/x/tools v0.0.0-20181201035826-d0ca3933b724 // indirect
+	golang.org/x/tools v0.0.0-20181207195948-8634b1ecd393 // indirect
 	google.golang.org/api v0.0.0-20181129220737-af4fc4062c26 // indirect
 	google.golang.org/appengine v1.3.0 // indirect
 	google.golang.org/genproto v0.0.0-20181127195345-31ac5d88444a
