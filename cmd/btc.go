@@ -16,9 +16,13 @@ import (
 
 func init() {
 	rootCmd.AddCommand(btcCmd)
+
+	btcCmd.PersistentFlags().BoolVarP(&btcCmdStartServer, "server", "s", false, "Start the webserver also")
 }
 
 var (
+	btcCmdStartServer bool
+
 	btcCmd = &cli.Command{
 		Use:   "btc",
 		Short: "BTC Extractor",
@@ -66,18 +70,21 @@ var (
 				)
 			}
 
-			// Create the server
-			s, err := server.New(ts, mb)
-			if err != nil {
-				logger.Fatalw("Could not create server",
-					"error", err,
-				)
-			}
-			err = s.ListenAndServe()
-			if err != nil {
-				logger.Fatalw("Could not start server",
-					"error", err,
-				)
+			//  Also start the web server
+			if btcCmdStartServer {
+				// Create the server
+				s, err := server.New(ts, mb)
+				if err != nil {
+					logger.Fatalw("Could not create server",
+						"error", err,
+					)
+				}
+				err = s.ListenAndServe()
+				if err != nil {
+					logger.Fatalw("Could not start server",
+						"error", err,
+					)
+				}
 			}
 
 			<-conf.Stop.Chan() // Wait until StopChan
