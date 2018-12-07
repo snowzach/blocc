@@ -56,6 +56,8 @@ func (e *Extractor) handleTx(wBlk *wire.MsgBlock, height int32, wTx *wire.MsgTx)
 		TxId:      wTx.TxHash().String(),
 		Raw:       new(store.Raw),
 		Addresses: make([]string, 0),
+		VinCount:  int64(len(wTx.TxIn)),
+		VoutCount: int64(len(wTx.TxOut)),
 	}
 	wTx.Serialize(tx.Raw)
 
@@ -68,6 +70,7 @@ func (e *Extractor) handleTx(wBlk *wire.MsgBlock, height int32, wTx *wire.MsgTx)
 			e.logger.Warnw("Could not decode PkScript", "error", err)
 		}
 		tx.Addresses = append(tx.Addresses, parseBTCAddresses(addresses)...)
+		tx.Value += vout.Value
 	}
 
 	// If this transaction came as part of a block, add block metadata
@@ -99,6 +102,14 @@ func (e *Extractor) handleTx(wBlk *wire.MsgBlock, height int32, wTx *wire.MsgTx)
 			err := e.ts.InsertTransaction(Symbol, tx, e.txLifetime)
 			if err != nil {
 				e.logger.Errorw("Could not TxStore InsertTransaction", "error", err)
+			}
+		}
+
+		// Send it on the message bus
+		if e.mb != nil {
+			err := e.mb.Publish(Symbol, "stream", tx)
+			if err != nil {
+				e.logger.Errorw("Could not TxMsgBus Public", "error", err)
 			}
 		}
 	}

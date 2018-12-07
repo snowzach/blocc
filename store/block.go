@@ -3,6 +3,7 @@ package store
 import (
 	"bytes"
 	"encoding/base64"
+	"io"
 )
 
 type Block struct {
@@ -28,6 +29,9 @@ type Tx struct {
 	Time      int64              `json:"time"`
 	BlockTime int64              `json:"blockTime"`
 	Addresses []string           `json:"address"`
+	Value     int64              `json:"value"`
+	VinCount  int64              `json:"vin_count"`
+	VoutCount int64              `json:"vout_count"`
 	Raw       *Raw               `json:"raw"`
 	Tags      map[string]string  `json:"tag"`
 	Metrics   map[string]float64 `json:"metric"`
@@ -39,4 +43,15 @@ type Raw struct {
 
 func (r *Raw) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + base64.StdEncoding.EncodeToString(r.Bytes()) + `"`), nil
+}
+
+func (r *Raw) UnmarshalJSON(in []byte) error {
+	// Remove the beginning and ending "
+	in = bytes.Trim(in, `"`)
+	r.Reset()
+	_, err := io.Copy(r, base64.NewDecoder(base64.StdEncoding, bytes.NewBuffer(in)))
+	if err != nil {
+		return err
+	}
+	return nil
 }

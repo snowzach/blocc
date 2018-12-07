@@ -28,6 +28,7 @@ type Extractor struct {
 	bs          blocc.BlockStore
 	ts          blocc.TxStore
 	ms          blocc.MetricStore
+	mb          blocc.TxMsgBus
 
 	throttleBlocks chan struct{}
 	throttleTxns   chan struct{}
@@ -37,13 +38,14 @@ type Extractor struct {
 	sync.WaitGroup
 }
 
-func Extract(bs blocc.BlockStore, ts blocc.TxStore, ms blocc.MetricStore) (*Extractor, error) {
+func Extract(bs blocc.BlockStore, ts blocc.TxStore, ms blocc.MetricStore, mb blocc.TxMsgBus) (*Extractor, error) {
 
 	e := &Extractor{
 		logger: zap.S().With("package", "blocc.btc"),
 		bs:     bs,
 		ts:     ts,
 		ms:     ms,
+		mb:     mb,
 
 		throttleBlocks: make(chan struct{}, config.GetInt("extractor.throttle_blocks")),
 		throttleTxns:   make(chan struct{}, config.GetInt("extractor.throttle_transactions")),

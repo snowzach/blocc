@@ -31,28 +31,35 @@ var (
 			var bs blocc.BlockStore
 			var ms blocc.MetricStore
 			var ts blocc.TxStore
+			var mb blocc.TxMsgBus
 
 			// Elastic will implement BlockStore
 			if config.GetString("elasticsearch.host") != "" {
-				bs, err = esearch.New()
+				es, err := esearch.New()
 				if err != nil {
 					logger.Fatalw("BlockStore Error", "error", err)
 				}
-
-				// Elastic will also implement MetricStore
-				ms = bs
+				// Elastic will implement BlockStore
+				bs = es
+				// Elastic will implement MetricStore
+				ms = es
 			}
 
 			// Redis will implement the TxStore/MemPool
 			if config.GetString("redis.host") != "" {
-				ts, err = redis.New(btc.Symbol, "mempool")
+				r, err := redis.New("mempool")
 				if err != nil {
 					logger.Fatalw("BlockCache Error", "error", err)
 				}
+
+				// Redis implents TxStore
+				ts = r
+				// Redis will also implement the message bus
+				mb = r
 			}
 
 			// Start the extractor
-			_, err = btc.Extract(bs, ts, ms)
+			_, err = btc.Extract(bs, ts, ms, mb)
 			if err != nil {
 				logger.Fatalw("Could not create Extractor",
 					"error", err,
@@ -60,7 +67,7 @@ var (
 			}
 
 			// Create the server
-			s, err := server.New(ts)
+			s, err := server.New(ts, mb)
 			if err != nil {
 				logger.Fatalw("Could not create server",
 					"error", err,

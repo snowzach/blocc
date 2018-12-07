@@ -45,3 +45,15 @@ type MetricStore interface {
 	// InsertMetric(symbol string, t string, m *store.Metric) error
 	// FindMetric(symbol string, t string, start time.Time, end time.Time) ([]*store.Metric, error)
 }
+
+// TxMsgBus is an interface to subscribe to transactions
+type TxMsgBus interface {
+	Publish(symbol string, key string, tx *store.Tx) error
+	Subscribe(symbol string, ket string) (TxChannel, error)
+}
+
+// TxChannel is a MsgBus channel for transactions
+type TxChannel interface {
+	Channel() <-chan *store.Tx
+	Close()
+}

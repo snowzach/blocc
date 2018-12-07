@@ -34,3 +34,12 @@ message MemPoolStats {
 message Test {
     string test = 1;
 }
+
+/*
+{
+    "txid": "sadfasdf",
+    "vin_count": 3,
+    "vout_count": 4,
+    "value": 213423423,
+}
+*/

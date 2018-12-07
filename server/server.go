@@ -45,10 +45,11 @@ type Server struct {
 
 	defaultSymbol string
 	ts            blocc.TxStore
+	mb            blocc.TxMsgBus
 }
 
 // New will setup the server
-func New(ts blocc.TxStore) (*Server, error) {
+func New(ts blocc.TxStore, mb blocc.TxMsgBus) (*Server, error) {
 
 	// This router is used for http requests only, setup all of our middleware
 	r := chi.NewRouter()
@@ -109,6 +110,7 @@ func New(ts blocc.TxStore) (*Server, error) {
 
 		defaultSymbol: config.GetString("server.default_symbol"),
 		ts:            ts,
+		mb:            mb,
 	}
 	s.server = &http.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
