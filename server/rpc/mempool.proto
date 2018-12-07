@@ -1,5 +1,7 @@
 syntax="proto3";
-package server;
+package rpc;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 
 import "google/api/annotations.proto";
 import "blocc/block.proto";
@@ -29,18 +31,5 @@ message Symbol {
 message MemPoolStats {
     int64 time = 1;
     int64 count = 2;
-    int64 size = 3;
+    int64 size = 3 [(gogoproto.customname) = "MPSize"];; 
 }
-
-message Test {
-    string test = 1;
-}
-
-/*
-{
-    "txid": "sadfasdf",
-    "vin_count": 3,
-    "vout_count": 4,
-    "value": 213423423,
-}
-*/

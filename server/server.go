@@ -16,7 +16,8 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
-	"github.com/golang/protobuf/jsonpb"
+	"github.com/gogo/gateway"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/snowzach/certtools"
@@ -186,8 +187,8 @@ func (s *Server) ListenAndServe() error {
 		grpcGatewayDialOptions = append(grpcGatewayDialOptions, grpc.WithInsecure())
 	}
 
-	// Setup the GRPC gateway
-	grpcGatewayJSONpbMarshaler := gwruntime.JSONPb(jsonpb.Marshaler{
+	// Setup the GRPC gateway - use gogoproto's marshaler
+	grpcGatewayJSONpbMarshaler := gateway.JSONPb(jsonpb.Marshaler{
 		EnumsAsInts:  config.GetBool("server.rest.enums_as_ints"),
 		EmitDefaults: config.GetBool("server.rest.emit_defaults"),
 		OrigName:     config.GetBool("server.rest.orig_names"),

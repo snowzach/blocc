@@ -1,5 +1,5 @@
 syntax="proto3";
-package server;
+package rpc;
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";

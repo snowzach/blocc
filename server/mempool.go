@@ -27,9 +27,9 @@ func (s *Server) GetMemPoolStats(ctx context.Context, input *rpc.Symbol) (*rpc.M
 	}
 
 	return &rpc.MemPoolStats{
-		Time:  time.Now().UTC().Unix(),
-		Count: count,
-		Size:  size,
+		Time:   time.Now().UTC().Unix(),
+		Count:  count,
+		MPSize: size,
 	}, nil
 
 }

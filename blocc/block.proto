@@ -1,6 +1,8 @@
 syntax="proto3";
 package blocc;
 
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
 option go_package = "git.coinninja.net/backend/blocc/blocc";
 
 message Block {
@@ -12,7 +14,7 @@ message Block {
     int64 time = 6;
     repeated string addresses = 8;
     repeated string txids = 9;
-    bytes raw = 10;
+    bytes raw = 10 [(gogoproto.casttype) = "Raw"];
 
     map<string, double> metric = 14;
     map<string, string> tag = 15;
@@ -28,7 +30,7 @@ message Tx {
     int64 time = 7;
     int64 block_time = 8;
     repeated string addresses = 10;
-    bytes raw = 11;
+    bytes raw = 11 [(gogoproto.casttype) = "Raw"];
 
     map<string, double> metric = 14;
     map<string, string> tag = 15;

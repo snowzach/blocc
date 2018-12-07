@@ -27,6 +27,8 @@ require (
 	github.com/go-redis/redis v6.14.2+incompatible
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
 	github.com/gocql/gocql v0.0.0-20181124151448-70385f88b28b // indirect
+	github.com/gogo/gateway v1.0.0
+	github.com/gogo/protobuf v1.1.1
 	github.com/golang-migrate/migrate/v4 v4.1.0
 	github.com/golang/lint v0.0.0-20181026193005-c67002cb31c3 // indirect
 	github.com/golang/protobuf v1.2.0
