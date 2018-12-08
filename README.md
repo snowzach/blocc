@@ -75,6 +75,10 @@ LOGGER_LEVEL=debug
 | redis.password                       | Redis password                                         | "redis"         |
 | redis.index                          | Redis index                                            | 0               |
 | ---                                  | ---                                                    | ---             |
+| extractor.btc.host                   | Host for bitcoind node                                 | "bitcoind"      |
+| extractor.btc.port                   | Port for bitcoind node                                 | "8333"          |
+| extractor.btc.chain                  | Which chain to monitor                                 | "mainnet"       |
+| extractor.btc.debug_messages         | Raw message debugging                                  | false           |
 | extractor.btc.start_hash             | Starting hash for extractor (blank=genesis)            | ""              |
 | extractor.btc.start_height           | The starting height for the specified block            | 0               |
 | extractor.btc.throttle_blocks        | Number of blocks to process simultaneously             | 30              |
@@ -82,17 +86,11 @@ LOGGER_LEVEL=debug
 | extractor.btc.transaction_lifetime   | How long to keep transaction in mempool (336h=2 weeks) | "336h"          |
 | extractor.btc.store_raw_blocks       | Store raw data in blockstore                           | false           |
 | extractor.btc.store_raw_transactions | Store raw transactions in blockstore                   | false           |
-| ---                                  | ---                                                    | ---             |
-| bitcoind.host                        | Host for bitcoind node                                 | "bitcoind"      |
-| bitcoind.port                        | Port for bitcoind node                                 | "8333"          |
-| bitcoind.chain                       | Which chain to monitor                                 | "mainnet"       |
-| bitcoind.debug_messages              | Raw message debugging                                  | false           |
-
-
 
 
 ## Data Storage
-Data is stored in a postgres database
+Transactions are stored in a mempool in redis as well as streamed via redis pubsub
+
 
 ## TLS/HTTPS
 You can enable https by setting the config option server.tls = true and pointing it to your keyfile and certfile.

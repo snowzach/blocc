@@ -73,19 +73,17 @@ func init() {
 	config.SetDefault("redis.password", "")
 	config.SetDefault("redis.index", 0)
 
-	// Extractor settings
-	config.SetDefault("extractor.start_hash", "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
-	config.SetDefault("extractor.start_height", 0)
-	config.SetDefault("extractor.throttle_blocks", 30)
-	config.SetDefault("extractor.throttle_transactions", 100)
-	config.SetDefault("extractor.transaction_lifetime", "336h") // 14 days
-	config.SetDefault("extractor.store_raw_blocks", false)
-	config.SetDefault("extractor.store_raw_transactions", false)
-
-	// Bitcoin network settings
-	config.SetDefault("bitcoind.host", "bitcoind")
-	config.SetDefault("bitcoind.port", 8333)
-	config.SetDefault("bitcoind.chain", "mainnet")
-	config.SetDefault("bitcoind.debug_messages", false)
+	// BTC extractor settings
+	config.SetDefault("extractor.btc.host", "bitcoind")
+	config.SetDefault("extractor.btc.port", 8333)
+	config.SetDefault("extractor.btc.chain", "mainnet")
+	config.SetDefault("extractor.btc.debug_messages", false)
+	config.SetDefault("extractor.btc.start_hash", "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
+	config.SetDefault("extractor.btc.start_height", 0)
+	config.SetDefault("extractor.btc.throttle_blocks", 30)
+	config.SetDefault("extractor.btc.throttle_transactions", 100)
+	config.SetDefault("extractor.btc.transaction_lifetime", "336h") // 14 days
+	config.SetDefault("extractor.btc.store_raw_blocks", false)
+	config.SetDefault("extractor.btc.store_raw_transactions", false)
 
 }

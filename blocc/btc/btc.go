@@ -94,13 +94,13 @@ func Extract(bs blocc.BlockStore, ts blocc.TxStore, ms blocc.MetricStore, mb blo
 	}
 	// Find the selected chain
 	for _, cp := range chains {
-		if config.GetString("bitcoind.chain") == cp.Name {
+		if config.GetString("extractor.btc.chain") == cp.Name {
 			e.chainParams = cp
 			break
 		}
 	}
 	if e.chainParams == nil {
-		return nil, fmt.Errorf("Could not find chain %s", config.GetString("bitcoind.chain"))
+		return nil, fmt.Errorf("Could not find chain %s", config.GetString("extractor.btc.chain"))
 	}
 
 	// When we get a verack message we are ready to process
@@ -124,13 +124,13 @@ func Extract(bs blocc.BlockStore, ts blocc.TxStore, ms blocc.MetricStore, mb blo
 	}
 
 	// Do we want to see debug messages
-	if config.GetBool("bitcoind.debug_messages") {
+	if config.GetBool("extractor.btc.debug_messages") {
 		peerConfig.Listeners.OnRead = e.OnRead
 		peerConfig.Listeners.OnWrite = e.OnWrite
 	}
 
 	// Create peer connection
-	e.peer, err = peer.NewOutboundPeer(peerConfig, net.JoinHostPort(config.GetString("bitcoind.host"), config.GetString("bitcoind.port")))
+	e.peer, err = peer.NewOutboundPeer(peerConfig, net.JoinHostPort(config.GetString("extractor.btc.host"), config.GetString("extractor.btc.port")))
 	if err != nil {
 		return nil, fmt.Errorf("Could not create outbound peer: %v", err)
 	}
