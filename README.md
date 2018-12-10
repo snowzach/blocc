@@ -41,7 +41,7 @@ LOGGER_LEVEL=debug
 | profiler.port                        | The profiler port to listen on                         | "6060"          |
 | ---                                  | ---                                                    | ---             |
 | server.host                          | The host address to listen on (blank=all addresses)    | ""              |
-| server.port                          | The port number to listen on                           | 8900            |
+| server.port                          | The port number to listen on                           | 8080            |
 | server.tls                           | Enable https/tls                                       | false           |
 | server.devcert                       | Generate a development cert                            | false           |
 | server.certfile                      | The HTTPS/TLS server certificate                       | "server.crt"    |

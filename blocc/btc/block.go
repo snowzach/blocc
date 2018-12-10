@@ -5,11 +5,13 @@ import (
 	"encoding/hex"
 	"math/big"
 	"strconv"
+	"time"
 
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
+	// "github.com/spf13/cast"
 
 	"git.coinninja.net/backend/blocc/blocc"
 )
@@ -39,6 +41,16 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 
 	// Metrics
 	blk.Metric["size"] = float64(wBlk.SerializeSize())
+	blk.Metric["stripped_size"] = float64(wBlk.SerializeSizeStripped())
+	blk.Metric["weight"] = float64((wBlk.SerializeSizeStripped() * (4 - 1)) + wBlk.SerializeSize()) // WitnessScaleFactor = 4
+	blk.Metric["bits"] = float64(wBlk.Header.Bits)
+	blk.Metric["difficulty"] = e.getDifficultyRatio(wBlk.Header.Bits)
+	// Tags
+	// These are additional metrics/tags we will eventually expose
+	// blk.Tag["version"] = cast.ToString(wBlk.Header.Version)
+	// blk.Tag["version_hex"] = fmt.Sprintf("%08x", wBlk.Header.Version)
+	// blk.Tag["merkle_root"] = wBlk.Header.MerkleRoot.String()
+	// blk.Tag["nonce"] = cast.ToString(wBlk.Header.Nonce)
 
 	for x, wTx := range wBlk.Transactions {
 		// Build list of transaction ids
@@ -81,7 +93,14 @@ func (e *Extractor) handleTx(wBlk *wire.MsgBlock, height int32, wTx *wire.MsgTx)
 	tx.Metric["vin_count"] = float64(len(wTx.TxIn))
 	tx.Metric["vout_count"] = float64(len(wTx.TxOut))
 	tx.Metric["size"] = float64(wTx.SerializeSize())
+	tx.Metric["vsize"] = float64(wTx.SerializeSizeStripped())
 	tx.Metric["value"] = 0
+
+	// These are additional metrics/tags we will eventually expose
+	// tx.Metric["weight"] = float64((wTx.SerializeSizeStripped() * (4 - 1)) + wTx.SerializeSize()) // WitnessScaleFactor = 4
+	// tx.Metric["version"] = float64(wTx.Version)
+	// tx.Tag["lock_time"] = cast.ToString(wTx.LockTime)
+	// tx.Tag["hash"] = wTx.TxHash().String()
 
 	// TODO: Fetch the source addesses from the blockstore
 
@@ -119,6 +138,9 @@ func (e *Extractor) handleTx(wBlk *wire.MsgBlock, height int32, wTx *wire.MsgTx)
 		}
 
 	} else {
+
+		tx.Metric["received_time"] = float64(time.Now().UTC().Unix())
+
 		// Store it in the transaction store
 		if e.ts != nil {
 			err := e.ts.InsertTransaction(Symbol, tx, e.txLifetime)
