@@ -9,7 +9,7 @@ message Block {
     string type = 1;
     string symbol = 2;
     string block_id = 3;
-    int64 height = 4;
+    int64 height = 4 [(gogoproto.jsontag) = "height"];
     string prev_block_id = 5;
     int64 time = 6;
     repeated string addresses = 8;

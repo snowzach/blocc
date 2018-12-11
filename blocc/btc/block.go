@@ -26,6 +26,7 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 		Symbol:      Symbol,
 		BlockId:     wBlk.BlockHash().String(),
 		PrevBlockId: wBlk.Header.PrevBlock.String(),
+		Height:      -1,
 		Time:        wBlk.Header.Timestamp.UTC().Unix(),
 		Txids:       make([]string, len(wBlk.Transactions), len(wBlk.Transactions)),
 		Data:        make(map[string]string),
