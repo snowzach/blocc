@@ -1,0 +1,21 @@
+version: '3.2'
+
+services:
+   redis:
+     image: redis:3.2.12
+#     Uncomment to open to outside
+#     ports:
+#       - 6379:6379
+     restart: always
+
+   blocc:
+     build: ../../
+     command: btc --server --transactions
+     environment:
+       EXTRACTOR_BTC_HOST: "seed.bitcoinstats.com"
+       LOGGER_LEVEL: "debug"
+     depends_on:
+       - redis
+     ports:
+       - 8080:8080
+     restart: always
