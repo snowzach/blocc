@@ -28,7 +28,7 @@ ${GOPATH}/bin/mockery:
 	go get github.com/vektra/mockery/cmd/mockery
 
 ${GOPATH}/src/github.com/gogo/protobuf/proto:
-	go get github.com/gogo/protobuf/proto
+	GO111MODULE=off go get github.com/gogo/protobuf/proto
 
 ${GOPATH}/bin/protoc-gen-gogoslick:
 	go get github.com/gogo/protobuf/protoc-gen-gogoslick
