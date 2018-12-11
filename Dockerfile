@@ -1,6 +1,6 @@
 # Build
 FROM golang:1.11-alpine3.8 AS build
-RUN apk add --no-cache make git && \
+RUN apk add --no-cache make git protobuf protobuf-dev && \
     rm -rf /var/cache/apk/*
 ENV CGO_ENABLED 0
 ENV GOOS linux
