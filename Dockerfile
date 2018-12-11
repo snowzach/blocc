@@ -18,4 +18,4 @@ USER blocc
 WORKDIR /opt/blocc
 COPY --from=build /build/bloccapi .
 EXPOSE 8080
-CMD [ "/opt/blocc/bloccapi", "btc", "--server"]
+ENTRYPOINT [ "/opt/blocc/bloccapi" ]
