@@ -25,10 +25,13 @@ type Extractor struct {
 	logger      *zap.SugaredLogger
 	peer        *peer.Peer
 	chainParams *chaincfg.Params
-	bs          blocc.BlockStore
-	ts          blocc.TxStore
+	bcs         blocc.BlockChainStore
+	txp         blocc.TxPool
+	txb         blocc.TxBus
 	ms          blocc.MetricStore
-	mb          blocc.TxMsgBus
+
+	extractBlocks bool
+	extractTxns   bool
 
 	throttleBlocks chan struct{}
 	throttleTxns   chan struct{}
@@ -41,14 +44,14 @@ type Extractor struct {
 	sync.WaitGroup
 }
 
-func Extract(bs blocc.BlockStore, ts blocc.TxStore, ms blocc.MetricStore, mb blocc.TxMsgBus) (*Extractor, error) {
+func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms blocc.MetricStore) (*Extractor, error) {
 
 	e := &Extractor{
 		logger: zap.S().With("package", "blocc.btc"),
-		bs:     bs,
-		ts:     ts,
+		bcs:    bcs,
+		txp:    txp,
+		txb:    txb,
 		ms:     ms,
-		mb:     mb,
 
 		throttleBlocks: make(chan struct{}, config.GetInt("extractor.btc.throttle_blocks")),
 		throttleTxns:   make(chan struct{}, config.GetInt("extractor.btc.throttle_transactions")),
@@ -61,19 +64,27 @@ func Extract(bs blocc.BlockStore, ts blocc.TxStore, ms blocc.MetricStore, mb blo
 
 	var err error
 
-	// Initialize the BlockStore for BTC
-	if bs != nil {
-		err = e.bs.Init(Symbol)
+	// Initialize the BlockChainStore for BTC
+	if bcs != nil {
+		err = e.bcs.Init(Symbol)
 		if err != nil {
-			return nil, fmt.Errorf("Could not Init BlockStore: %s", err)
+			return nil, fmt.Errorf("Could not Init BlockChainStore: %s", err)
 		}
 	}
 
-	// Initialize the TxStore for BTC
-	if ts != nil {
-		err = e.ts.Init(Symbol)
+	// Initialize the TxPool for BTC
+	if txp != nil {
+		err = e.txp.Init(Symbol)
 		if err != nil {
-			return nil, fmt.Errorf("Could not Init TxStore: %s", err)
+			return nil, fmt.Errorf("Could not Init TxPool: %s", err)
+		}
+	}
+
+	// Initialize the TxBus for BTC
+	if txb != nil {
+		err = e.txb.Init(Symbol)
+		if err != nil {
+			return nil, fmt.Errorf("Could not Init TxBus: %s", err)
 		}
 	}
 
@@ -156,14 +167,21 @@ func Extract(bs blocc.BlockStore, ts blocc.TxStore, ms blocc.MetricStore, mb blo
 	// Get Some Block
 	// Genesis
 	// e.RequestBlocks("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f", "0")
+	// Some Random Block
 	// e.RequestBlocks("0000000000000000001dc99dba99a662fbd923c5c50efec19782be8fe1de1d7f", "0")
 
 	// Get the mempool from the peer
-	e.RequestMemPool()
+	if e.txp != nil {
+		e.RequestMemPool()
+	}
 
 	return e, nil
 
 }
+
+// BlockChain will start fetching blocks until it has the entire block chain
+// func (e *Extractor) BlockChain(blkId string, height int64) error {
+// }
 
 // RequestBlocks will send a GetBlocks Message to the peer
 func (e *Extractor) RequestBlocks(start string, stop string) error {
@@ -228,13 +246,16 @@ func (e *Extractor) OnInv(p *peer.Peer, msg *wire.MsgInv) {
 			}
 			p.QueueMessage(msg, nil)
 		case wire.InvTypeBlock:
-			e.logger.Debugw("Got Inv", "type", iv.Type, "txid", iv.Hash.String())
-			msg := wire.NewMsgGetData()
-			err := msg.AddInvVect(iv)
-			if err != nil {
-				e.logger.Errorw("AddInvVect", "error", err)
+			// We only need transactions if we're operating with a TxPool or TxBus
+			if e.txp != nil || e.txb != nil {
+				e.logger.Debugw("Got Inv", "type", iv.Type, "txid", iv.Hash.String())
+				msg := wire.NewMsgGetData()
+				err := msg.AddInvVect(iv)
+				if err != nil {
+					e.logger.Errorw("AddInvVect", "error", err)
+				}
+				p.QueueMessage(msg, nil)
 			}
-			p.QueueMessage(msg, nil)
 		}
 	}
 }

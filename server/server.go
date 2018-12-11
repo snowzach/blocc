@@ -45,12 +45,12 @@ type Server struct {
 	gwRegFuncs []gwRegFunc
 
 	defaultSymbol string
-	ts            blocc.TxStore
-	mb            blocc.TxMsgBus
+	txp           blocc.TxPool
+	txb           blocc.TxBus
 }
 
 // New will setup the server
-func New(ts blocc.TxStore, mb blocc.TxMsgBus) (*Server, error) {
+func New(txp blocc.TxPool, txb blocc.TxBus) (*Server, error) {
 
 	// This router is used for http requests only, setup all of our middleware
 	r := chi.NewRouter()
@@ -110,8 +110,8 @@ func New(ts blocc.TxStore, mb blocc.TxMsgBus) (*Server, error) {
 		gwRegFuncs: make([]gwRegFunc, 0),
 
 		defaultSymbol: config.GetString("server.default_symbol"),
-		ts:            ts,
-		mb:            mb,
+		txp:           txp,
+		txb:           txb,
 	}
 	s.server = &http.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -249,7 +249,7 @@ func (sl *serverLogger) Warnln(data ...interface{}) {
 	sl.logger.Warn(data...)
 }
 
-// Debugln is called by the wsproxy for warning messages
+// Debugln is called by the wsproxy for debug messages
 func (sl *serverLogger) Debugln(data ...interface{}) {
 	sl.logger.Debug(data...)
 }

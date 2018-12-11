@@ -16,9 +16,9 @@ func (c *client) Init(symbol string) error {
 // InsertTransaction will add a transaction
 func (c *client) InsertTransaction(symbol string, tx *blocc.Tx, expire time.Duration) error {
 	// Currently all we care about is size
-	size, ok := tx.Metric["size"]
+	size, ok := tx.Data["size"]
 	if !ok {
-		size = 0
+		size = "0"
 	}
 	return c.client.Set(c.symPrefix(symbol)+tx.TxId, size, expire).Err()
 }

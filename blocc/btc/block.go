@@ -3,15 +3,15 @@ package btc
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"math/big"
-	"strconv"
 	"time"
 
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
-	// "github.com/spf13/cast"
+	"github.com/spf13/cast"
 
 	"git.coinninja.net/backend/blocc/blocc"
 )
@@ -28,8 +28,7 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 		PrevBlockId: wBlk.Header.PrevBlock.String(),
 		Time:        wBlk.Header.Timestamp.UTC().Unix(),
 		Txids:       make([]string, len(wBlk.Transactions), len(wBlk.Transactions)),
-		Metric:      make(map[string]float64),
-		Tag:         make(map[string]string),
+		Data:        make(map[string]string),
 	}
 
 	// Write the raw block
@@ -40,17 +39,15 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 	}
 
 	// Metrics
-	blk.Metric["size"] = float64(wBlk.SerializeSize())
-	blk.Metric["stripped_size"] = float64(wBlk.SerializeSizeStripped())
-	blk.Metric["weight"] = float64((wBlk.SerializeSizeStripped() * (4 - 1)) + wBlk.SerializeSize()) // WitnessScaleFactor = 4
-	blk.Metric["bits"] = float64(wBlk.Header.Bits)
-	blk.Metric["difficulty"] = e.getDifficultyRatio(wBlk.Header.Bits)
-	// Tags
-	// These are additional metrics/tags we will eventually expose
-	// blk.Tag["version"] = cast.ToString(wBlk.Header.Version)
-	// blk.Tag["version_hex"] = fmt.Sprintf("%08x", wBlk.Header.Version)
-	// blk.Tag["merkle_root"] = wBlk.Header.MerkleRoot.String()
-	// blk.Tag["nonce"] = cast.ToString(wBlk.Header.Nonce)
+	blk.Data["size"] = cast.ToString(wBlk.SerializeSize())
+	blk.Data["stripped_size"] = cast.ToString(wBlk.SerializeSizeStripped())
+	blk.Data["weight"] = cast.ToString((wBlk.SerializeSizeStripped() * (4 - 1)) + wBlk.SerializeSize()) // WitnessScaleFactor = 4
+	blk.Data["bits"] = cast.ToString(wBlk.Header.Bits)
+	blk.Data["difficulty"] = cast.ToString(e.getDifficultyRatio(wBlk.Header.Bits))
+	blk.Data["version"] = cast.ToString(wBlk.Header.Version)
+	blk.Data["version_hex"] = fmt.Sprintf("%08x", wBlk.Header.Version)
+	blk.Data["merkle_root"] = wBlk.Header.MerkleRoot.String()
+	blk.Data["nonce"] = cast.ToString(wBlk.Header.Nonce)
 
 	for x, wTx := range wBlk.Transactions {
 		// Build list of transaction ids
@@ -60,9 +57,9 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 		e.handleTx(wBlk, int32(x), wTx)
 	}
 
-	// if blockstore is activated, store the block
-	if e.bs != nil {
-		err := e.bs.InsertBlock(Symbol, blk)
+	// if BlockChainStore is activated, store the block
+	if e.bcs != nil {
+		err := e.bcs.InsertBlock(Symbol, blk)
 		if err != nil {
 			e.logger.Errorw("Could not BlockStore InsertBlockBTC", "error", err)
 		}
@@ -78,8 +75,7 @@ func (e *Extractor) handleTx(wBlk *wire.MsgBlock, height int32, wTx *wire.MsgTx)
 		Symbol:    Symbol,
 		TxId:      wTx.TxHash().String(),
 		Addresses: make([]string, 0),
-		Metric:    make(map[string]float64),
-		Tag:       make(map[string]string),
+		Data:      make(map[string]string),
 	}
 
 	// Write the raw transaction
@@ -90,29 +86,31 @@ func (e *Extractor) handleTx(wBlk *wire.MsgBlock, height int32, wTx *wire.MsgTx)
 	}
 
 	// Metrics
-	tx.Metric["vin_count"] = float64(len(wTx.TxIn))
-	tx.Metric["vout_count"] = float64(len(wTx.TxOut))
-	tx.Metric["size"] = float64(wTx.SerializeSize())
-	tx.Metric["vsize"] = float64(wTx.SerializeSizeStripped())
-	tx.Metric["value"] = 0
-
-	// These are additional metrics/tags we will eventually expose
-	// tx.Metric["weight"] = float64((wTx.SerializeSizeStripped() * (4 - 1)) + wTx.SerializeSize()) // WitnessScaleFactor = 4
-	// tx.Metric["version"] = float64(wTx.Version)
-	// tx.Tag["lock_time"] = cast.ToString(wTx.LockTime)
-	// tx.Tag["hash"] = wTx.TxHash().String()
+	tx.Data["vin_count"] = cast.ToString(len(wTx.TxIn))
+	tx.Data["vout_count"] = cast.ToString(len(wTx.TxOut))
+	tx.Data["size"] = cast.ToString(wTx.SerializeSize())
+	tx.Data["vsize"] = cast.ToString(wTx.SerializeSizeStripped())
+	tx.Data["weight"] = cast.ToString((wTx.SerializeSizeStripped() * (4 - 1)) + wTx.SerializeSize()) // WitnessScaleFactor = 4
+	tx.Data["version"] = cast.ToString(wTx.Version)
+	tx.Data["lock_time"] = cast.ToString(wTx.LockTime)
+	tx.Data["hash"] = wTx.TxHash().String()
 
 	// TODO: Fetch the source addesses from the blockstore
+
+	var value int64
 
 	// Append the destination addresses
 	for _, vout := range wTx.TxOut {
 		_, addresses, _, err := txscript.ExtractPkScriptAddrs(vout.PkScript, e.chainParams)
 		if err != nil {
-			e.logger.Warnw("Could not decode PkScript", "error", err)
+			e.logger.Warnw("Could not decode PkScript", "txId", tx.TxId, "error", err, "addresses", addresses, "script", hex.EncodeToString(vout.PkScript))
+			continue
 		}
 		tx.Addresses = append(tx.Addresses, parseBTCAddresses(addresses)...)
-		tx.Metric["value"] += float64(vout.Value)
+		value += vout.Value
 	}
+
+	tx.Data["value"] = cast.ToString(value)
 
 	// If this transaction came as part of a block, add block metadata
 	if wBlk != nil {
@@ -121,17 +119,17 @@ func (e *Extractor) handleTx(wBlk *wire.MsgBlock, height int32, wTx *wire.MsgTx)
 		tx.Time = wBlk.Header.Timestamp.UTC().Unix()
 		tx.BlockTime = wBlk.Header.Timestamp.UTC().Unix()
 
-		// Insert it into the blockstore
-		if e.bs != nil {
-			err := e.bs.InsertTransaction(Symbol, tx)
+		// Insert it into the BlockChainStore
+		if e.bcs != nil {
+			err := e.bcs.InsertTransaction(Symbol, tx)
 			if err != nil {
 				e.logger.Errorw("Could not BlockStore InsertTransaction", "error", err)
 			}
 		}
 
-		// If we have a txStore, remove this transaction if it exists
-		if e.ts != nil {
-			err := e.ts.DeleteTransaction(Symbol, tx.TxId)
+		// If we have a TxPool, remove this transaction if it exists
+		if e.txp != nil {
+			err := e.txp.DeleteTransaction(Symbol, tx.TxId)
 			if err != nil {
 				e.logger.Errorw("Could not TxStore DeleteTransaction", "error", err)
 			}
@@ -139,19 +137,19 @@ func (e *Extractor) handleTx(wBlk *wire.MsgBlock, height int32, wTx *wire.MsgTx)
 
 	} else {
 
-		tx.Metric["received_time"] = float64(time.Now().UTC().Unix())
+		tx.Data["received_time"] = cast.ToString(time.Now().UTC().Unix())
 
-		// Store it in the transaction store
-		if e.ts != nil {
-			err := e.ts.InsertTransaction(Symbol, tx, e.txLifetime)
+		// Store it in the TxPool
+		if e.txp != nil {
+			err := e.txp.InsertTransaction(Symbol, tx, e.txLifetime)
 			if err != nil {
 				e.logger.Errorw("Could not TxStore InsertTransaction", "error", err)
 			}
 		}
 
-		// Send it on the message bus
-		if e.mb != nil {
-			err := e.mb.Publish(Symbol, "stream", tx)
+		// Send it on the TxBus
+		if e.txb != nil {
+			err := e.txb.Publish(Symbol, "stream", tx)
 			if err != nil {
 				e.logger.Errorw("Could not TxMsgBus Public", "error", err)
 			}
@@ -180,19 +178,13 @@ func parseBTCAddresses(in []btcutil.Address) []string {
 
 // getDifficultyRatio returns the proof-of-work difficulty as a multiple of the
 // minimum difficulty using the passed bits field from the header of a block.
-func (e *Extractor) getDifficultyRatio(bits uint32) float64 {
+func (e *Extractor) getDifficultyRatio(bits uint32) string {
 	// The minimum difficulty is the max possible proof-of-work limit bits
 	// converted back to a number.  Note this is not the same as the proof of
 	// work limit directly because the block difficulty is encoded in a block
 	// with the compact form which loses precision.
 	max := blockchain.CompactToBig(e.chainParams.PowLimitBits)
 	target := blockchain.CompactToBig(bits)
-
 	difficulty := new(big.Rat).SetFrac(max, target)
-	outString := difficulty.FloatString(8)
-	diff, err := strconv.ParseFloat(outString, 64)
-	if err != nil {
-		return 0
-	}
-	return diff
+	return difficulty.FloatString(8)
 }

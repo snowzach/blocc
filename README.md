@@ -78,6 +78,8 @@ LOGGER_LEVEL=debug
 | extractor.btc.host                   | Host for bitcoind node                                 | "bitcoind"      |
 | extractor.btc.port                   | Port for bitcoind node                                 | "8333"          |
 | extractor.btc.chain                  | Which chain to monitor                                 | "mainnet"       |
+| extractor.btc.blocks                 | Should we extract blocks to the block store            | false           |
+| extractor.btc.transactions           | Should we extract transactions into the txstore        | false           |
 | extractor.btc.debug_messages         | Raw message debugging                                  | false           |
 | extractor.btc.start_hash             | Starting hash for extractor (blank=genesis)            | ""              |
 | extractor.btc.start_height           | The starting height for the specified block            | 0               |

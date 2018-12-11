@@ -2,9 +2,8 @@ package cmd
 
 import (
 	cli "github.com/spf13/cobra"
-	"go.uber.org/zap"
-
 	config "github.com/spf13/viper"
+	"go.uber.org/zap"
 
 	"git.coinninja.net/backend/blocc/blocc"
 	"git.coinninja.net/backend/blocc/blocc/btc"
@@ -17,11 +16,18 @@ import (
 func init() {
 	rootCmd.AddCommand(btcCmd)
 
-	btcCmd.PersistentFlags().BoolVarP(&btcCmdStartServer, "server", "s", false, "Start the webserver also")
+	btcCmd.PersistentFlags().BoolVarP(&btcCmdServer, "server", "s", false, "Start the webserver")
+	btcCmd.PersistentFlags().BoolVarP(&btcCmdBlocks, "blocks", "b", false, "Start the block extractor")
+	btcCmd.PersistentFlags().BoolVarP(&btcCmdTxns, "transactions", "t", false, "Start the txn extractor")
+
+	config.BindPFlag("extractor.btc.blocks", btcCmd.PersistentFlags().Lookup("blocks"))
+	config.BindPFlag("extractor.btc.transactions", btcCmd.PersistentFlags().Lookup("transactions"))
 }
 
 var (
-	btcCmdStartServer bool
+	btcCmdServer bool
+	btcCmdBlocks bool
+	btcCmdTxns   bool
 
 	btcCmd = &cli.Command{
 		Use:   "btc",
@@ -32,48 +38,50 @@ var (
 			var err error
 
 			// Setup the BlockStore
-			var bs blocc.BlockStore
+			var bcs blocc.BlockChainStore
+			var txp blocc.TxPool
+			var txb blocc.TxBus
 			var ms blocc.MetricStore
-			var ts blocc.TxStore
-			var mb blocc.TxMsgBus
 
 			// Elastic will implement BlockStore
-			if config.GetString("elasticsearch.host") != "" {
+			if btcCmdBlocks {
 				es, err := esearch.New()
 				if err != nil {
 					logger.Fatalw("BlockStore Error", "error", err)
 				}
 				// Elastic will implement BlockStore
-				bs = es
+				bcs = es
 				// Elastic will implement MetricStore
 				ms = es
 			}
 
 			// Redis will implement the TxStore/MemPool
-			if config.GetString("redis.host") != "" {
+			if btcCmdTxns || btcCmdServer {
 				r, err := redis.New("mempool")
 				if err != nil {
 					logger.Fatalw("BlockCache Error", "error", err)
 				}
 
 				// Redis implents TxStore
-				ts = r
+				txp = r
 				// Redis will also implement the message bus
-				mb = r
+				txb = r
 			}
 
 			// Start the extractor
-			_, err = btc.Extract(bs, ts, ms, mb)
-			if err != nil {
-				logger.Fatalw("Could not create Extractor",
-					"error", err,
-				)
+			if btcCmdBlocks || btcCmdTxns {
+				_, err = btc.Extract(bcs, txp, txb, ms)
+				if err != nil {
+					logger.Fatalw("Could not create Extractor",
+						"error", err,
+					)
+				}
 			}
 
 			//  Also start the web server
-			if btcCmdStartServer {
+			if btcCmdServer {
 				// Create the server
-				s, err := server.New(ts, mb)
+				s, err := server.New(txp, txb)
 				if err != nil {
 					logger.Fatalw("Could not create server",
 						"error", err,

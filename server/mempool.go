@@ -17,11 +17,11 @@ func (s *Server) GetMemPoolStats(ctx context.Context, input *rpc.Symbol) (*rpc.M
 		input.Symbol = s.defaultSymbol
 	}
 
-	count, err := s.ts.GetTransactionCount(input.Symbol)
+	count, err := s.txp.GetTransactionCount(input.Symbol)
 	if err != nil {
 		return nil, grpc.Errorf(codes.Internal, "Could not GetTransactionCount: %v", err)
 	}
-	size, err := s.ts.GetTransactionBytes(input.Symbol)
+	size, err := s.txp.GetTransactionBytes(input.Symbol)
 	if err != nil {
 		return nil, grpc.Errorf(codes.Internal, "Could not GetTransactionBytes: %v", err)
 	}
@@ -41,7 +41,7 @@ func (s *Server) GetMemPoolStream(input *rpc.Symbol, server rpc.MemPoolRPC_GetMe
 		input.Symbol = s.defaultSymbol
 	}
 
-	sub, err := s.mb.Subscribe(input.Symbol, "stream")
+	sub, err := s.txb.Subscribe(input.Symbol, "stream")
 	if err != nil {
 		return grpc.Errorf(codes.Internal, "Could not TxMsgBus.Subscribe: %v", err)
 	}

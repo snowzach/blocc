@@ -16,8 +16,7 @@ message Block {
     repeated string txids = 9;
     bytes raw = 10 [(gogoproto.casttype) = "Raw"];
 
-    map<string, double> metric = 14;
-    map<string, string> tag = 15;
+    map<string, string> data = 15;
 }
 
 message Tx {
@@ -32,8 +31,7 @@ message Tx {
     repeated string addresses = 10;
     bytes raw = 11 [(gogoproto.casttype) = "Raw"];
 
-    map<string, double> metric = 14;
-    map<string, string> tag = 15;
+    map<string, string> data = 15;
 }
 
 message Metric {
@@ -44,6 +42,5 @@ message Metric {
     int64 height = 5;
     int64 time = 6;
 
-    map<string, double> metric = 14;
-    map<string, string> tag = 15;
+    map<string, string> data = 15;
 }

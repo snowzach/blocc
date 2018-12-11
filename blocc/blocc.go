@@ -4,8 +4,8 @@ import (
 	"time"
 )
 
-// BlockStore is an interface that is used to get and store blocks and transactions
-type BlockStore interface {
+// BlockChainStore is an interface that is used to get and store blocks and transactions
+type BlockChainStore interface {
 	Init(symbol string) error
 	Flush(symbol string) error
 
@@ -13,10 +13,17 @@ type BlockStore interface {
 	UpsertBlock(symbol string, blk *Block) error
 	InsertTransaction(symbol string, blk *Tx) error
 
-	// GetBlockHeight(symbol string) (int64, error)
+	// Get the highest block id and height
+	GetBlockHeight(symbol string) (string, int64, error)
 
-	// GetBlockByHeight(symbol string, height int64, includeRaw bool) (*store.Block, error)
-	// GetBlockByBlockId(symbol string, blockId string, includeRaw bool) (*store.Block, error)
+	// Get Height <-> BlockId
+	GetBlockIdByHeight(symbol string, height int64) (string, error)
+	GetHeightdByBlockId(symbol string, blockId string) (int64, error)
+
+	// Get Block by height or id
+	GetBlockByHeight(symbol string, height int64) (*Block, error)
+	GetBlockByBlockId(symbol string, blockId string) (*Block, error)
+
 	// GetBlockByTxId(symbol string, txId string, includeRaw bool) (*store.Block, error)
 	// GetTxByTxId(symbol string, txId string, includeRaw bool) (*store.Tx, error)
 	// FindTxByHeight(symbol string, height int64, includeRaw bool) ([]*store.Tx, error)
@@ -26,8 +33,8 @@ type BlockStore interface {
 	// FindTxByAddresses(symbol string, addresses []string, includeRaw bool) ([]*store.Tx, error)
 }
 
-// TxStore will store transactions (mempool)
-type TxStore interface {
+// TxPool will store transactions (mempool)
+type TxPool interface {
 	Init(symbol string) error
 	InsertTransaction(symbol string, tx *Tx, ttl time.Duration) error
 	DeleteTransaction(symbol string, txId string) error
@@ -37,6 +44,13 @@ type TxStore interface {
 	// GetTransactionByTxId(symbol string, txId string) (*store.Transaction, error)
 }
 
+// TxMsgBus is an interface to subscribe to transactions
+type TxBus interface {
+	Init(symbol string) error
+	Publish(symbol string, key string, tx *Tx) error
+	Subscribe(symbol string, ket string) (TxChannel, error)
+}
+
 // MetricStore is a simple interface for getting and storing metrics related to the block chain
 type MetricStore interface {
 	Init(string) error
@@ -44,14 +58,14 @@ type MetricStore interface {
 	// FindMetric(symbol string, t string, start time.Time, end time.Time) ([]*store.Metric, error)
 }
 
-// TxMsgBus is an interface to subscribe to transactions
-type TxMsgBus interface {
-	Publish(symbol string, key string, tx *Tx) error
-	Subscribe(symbol string, ket string) (TxChannel, error)
-}
-
 // TxChannel is a MsgBus channel for transactions
 type TxChannel interface {
 	Channel() <-chan *Tx
 	Close()
+}
+
+// BlockHeightMonitor is a lookup/cachce provider
+type BlockHeightMonitor interface {
+	WaitForBlockHeight(id string) <-chan int64
+	BlockHeight(id string, height int64)
 }

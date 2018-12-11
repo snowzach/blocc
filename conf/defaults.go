@@ -78,6 +78,8 @@ func init() {
 	config.SetDefault("extractor.btc.port", 8333)
 	config.SetDefault("extractor.btc.chain", "mainnet")
 	config.SetDefault("extractor.btc.debug_messages", false)
+	config.SetDefault("extractor.btc.blocks", false)
+	config.SetDefault("extractor.btc.transactions", false)
 	config.SetDefault("extractor.btc.start_hash", "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
 	config.SetDefault("extractor.btc.start_height", 0)
 	config.SetDefault("extractor.btc.throttle_blocks", 30)
