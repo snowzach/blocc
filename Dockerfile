@@ -10,12 +10,11 @@ RUN make
 
 # Production
 FROM alpine:3.8
-RUN apk add --no-cache ca-certificates && \
+RUN apk add --no-cache ca-certificates su-exec && \
     rm -rf /var/cache/apk/*
 RUN addgroup -S blocc && adduser -S blocc -G blocc
 RUN mkdir -p /opt/blocc
-USER blocc
 WORKDIR /opt/blocc
-COPY --from=build /build/bloccapi .
 EXPOSE 8080
-CMD [ "/opt/blocc/bloccapi" ]
+COPY --from=build /build/bloccapi .
+CMD [ "su-exec", "blocc:blocc", "/opt/blocc/bloccapi" ]
