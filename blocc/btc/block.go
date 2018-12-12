@@ -66,14 +66,14 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 	} else {
 		e.Unlock()
 		// If we still don't know, wait for it
-		prevBlk := <-e.bm.WaitForBlockId(blk.PrevBlockId, time.Now().Add(2*time.Minute))
+		prevBlk := <-e.bm.WaitForBlockId(blk.PrevBlockId, time.Now().Add(10*time.Minute))
 		if prevBlk != nil && prevBlk.Height != -1 {
 			blk.Height = prevBlk.Height + 1
 		}
 	}
 
 	// Add the block to the block montior
-	e.bm.AddBlock(blk, time.Now().Add(10*time.Minute))
+	e.bm.AddBlock(blk, time.Now().Add(20*time.Minute))
 
 	// if BlockChainStore is activated, store the block but keep processing
 	if e.bcs != nil {
