@@ -99,30 +99,22 @@ func (e *esearch) GetBlockHeight(symbol string) (string, int64, error) {
 		Index(e.indexName(symbol)).
 		Type(e.index).
 		Sort("height", false).
-		FetchSourceContext(elastic.NewFetchSourceContext(true).Include("height").Include("_id")).
+		FetchSourceContext(elastic.NewFetchSourceContext(true).Include("height").Include("block_id")).
 		From(0).Size(1).Do(e.ctx)
 	if err != nil {
 		return "", 0, err
 	}
 
-	e.logger.Errorf("1")
-
 	if res.Hits.TotalHits == 0 {
 		return "", 0, store.ErrNotFound
 	}
 
-	e.logger.Errorf("2")
-
 	var b struct {
-		Id     string `json:"_id"`
+		Id     string `json:"block_id"`
 		Height int64  `json:"height"`
 	}
 
-	e.logger.Errorf("3")
-
 	err = json.Unmarshal(*res.Hits.Hits[0].Source, &b)
-
-	e.logger.Errorf("5 %v", b)
 
 	return b.Id, b.Height, nil
 }
