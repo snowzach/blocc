@@ -127,11 +127,36 @@ func New() (*esearch, error) {
 	// Start up the bulk processor
 	e.bulk, err = e.client.BulkProcessor().
 		Name("bulk").
+		BulkActions(-1).
 		FlushInterval(5 * time.Second).
 		Workers(config.GetInt("elasticsearch.bulk_workers")).
+		Stats(config.GetBool("elasticsearch.bulk_stats")).
 		Do(e.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("Could not start BulkProcessor: %s", err)
+	}
+
+	// Did we enable stats
+	if config.GetBool("elasticsearch.bulk_stats") {
+		go func() {
+			for {
+				time.Sleep(config.GetDuration("elasticsearch.bulk_stats_interval"))
+				stats := e.bulk.Stats()
+				e.logger.Infow("Bulk Stats",
+					"flushed", stats.Flushed,
+					"committed", stats.Committed,
+					"indexed", stats.Indexed,
+					"created", stats.Created,
+					"updated", stats.Updated,
+					"deleted", stats.Deleted,
+					"succeeded", stats.Succeeded,
+					"failed", stats.Failed,
+				)
+				for x, worker := range stats.Workers {
+					e.logger.Infow("Bulk Worker Stats", "worker", x, "queued", worker.Queued, "duration", worker.LastDuration)
+				}
+			}
+		}()
 	}
 
 	return e, nil

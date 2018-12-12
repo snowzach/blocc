@@ -68,6 +68,9 @@ LOGGER_LEVEL=debug
 | elasticsearch.index_replicas         | Default elastic index replicas                         | 0               |
 | elasticsearch.index_shards           | Default elastic index shards                           | 5               |
 | elasticsearch.refresh_interval       | How often to refresh indexes                           | "30s"           |
+| elasticsearch.bulk_workers           | Number of bulk workers to start                        | 2               |
+| elasticsearch.bulk_stats             | Periodically show bulk stats                           | false           |
+| elasticsearch.bulk_stats_interval    | How often to show bulk stats                           | "60s            |
 | elasticsearch.wipe_confirm           | Wipe elastic database/indexes                          | false           |
 | ---                                  | ---                                                    | ---             |
 | redis.host                           | Host for redis                                         | "redis"         |

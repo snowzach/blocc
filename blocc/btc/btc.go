@@ -204,6 +204,8 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 func (e *Extractor) fetchBlockChain() {
 
 	for {
+		start := time.Now()
+
 		e.Lock()
 
 		// This will fetch blocks, the first block will be the one after this one and will return 500 blocks
@@ -222,7 +224,14 @@ func (e *Extractor) fetchBlockChain() {
 		// Otherwise, wait for the blocks for 2 hours
 		blk := <-e.bm.WaitForBlockHeight(height, time.Now().Add(120*time.Minute))
 		if blk == nil {
-			e.logger.Errorw("Did not get block when follwing blockchain", "height", height)
+			e.logger.Errorw("Did not get block when following blockchain", "height", height)
+		} else {
+			e.logger.Infow("Block Chain Stats",
+				"rate(/h)", 500.0/(time.Now().Sub(start).Hours()),
+				"rate(/m)", 500.0/time.Now().Sub(start).Minutes(),
+				"rate(/s)", 500.0/time.Now().Sub(start).Seconds(),
+				"eta", (time.Duration(float64(int64(e.peer.LastBlock())-height)/(500.0/time.Now().Sub(start).Seconds())) * time.Second).String(),
+			)
 		}
 
 		e.Lock()
