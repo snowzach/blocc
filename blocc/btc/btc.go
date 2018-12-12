@@ -17,6 +17,7 @@ import (
 
 	"git.coinninja.net/backend/blocc/blocc"
 	"git.coinninja.net/backend/blocc/conf"
+	"git.coinninja.net/backend/blocc/store"
 )
 
 const Symbol = "btc"
@@ -29,6 +30,7 @@ type Extractor struct {
 	txp         blocc.TxPool
 	txb         blocc.TxBus
 	ms          blocc.MetricStore
+	bm          blocc.BlockMonitor
 
 	extractBlocks bool
 	extractTxns   bool
@@ -39,9 +41,16 @@ type Extractor struct {
 	storeRawBlocks       bool
 	storeRawTransactions bool
 
+	// This is used to determine how much complete data we have in our database
+	validBlockId     string
+	validBlockHeight int64
+
 	txLifetime time.Duration
 
+	newestBlock *blocc.Block
+
 	sync.WaitGroup
+	sync.Mutex
 }
 
 func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms blocc.MetricStore) (*Extractor, error) {
@@ -52,6 +61,7 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 		txp:    txp,
 		txb:    txb,
 		ms:     ms,
+		bm:     blocc.NewBMonitorMemory(),
 
 		throttleBlocks: make(chan struct{}, config.GetInt("extractor.btc.throttle_blocks")),
 		throttleTxns:   make(chan struct{}, config.GetInt("extractor.btc.throttle_transactions")),
@@ -162,13 +172,24 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 		return nil, fmt.Errorf("Never got verack ready message")
 	}
 
-	e.logger.Infow("Connected to peer", "peer", e.peer.Addr())
+	e.logger.Infow("Connected to peer", "peer", e.peer.Addr(), "height", e.peer.StartingHeight(), "last_block", e.peer.LastBlock())
 
-	// Get Some Block
-	// Genesis
-	// e.RequestBlocks("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f", "0")
-	// Some Random Block
-	// e.RequestBlocks("0000000000000000001dc99dba99a662fbd923c5c50efec19782be8fe1de1d7f", "0")
+	// Did we provide a blockchain store?
+	if e.bcs != nil {
+		// Figure out the top block in the store
+		e.validBlockId, e.validBlockHeight, err = e.bcs.GetBlockHeight(Symbol)
+		if err != nil && err != store.ErrNotFound {
+			e.logger.Errorw("GetBlockHeight", "error", err)
+		} else {
+			if err == store.ErrNotFound {
+				// Set to the start block if we don't have any
+				e.validBlockId = config.GetString("extractor.btc.start_block_id")
+				e.validBlockHeight = config.GetInt64("extractor.btc.start_block_height")
+			}
+			e.logger.Infow("Starting block extraction", "start_block_id", e.validBlockId, "start_block_height", e.validBlockHeight)
+			go e.fetchBlockChain()
+		}
+	}
 
 	// Get the mempool from the peer
 	if e.txp != nil {
@@ -179,9 +200,39 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 
 }
 
-// BlockChain will start fetching blocks until it has the entire block chain
-// func (e *Extractor) BlockChain(blkId string, height int64) error {
-// }
+// fetchBlockChain will start fetching blocks until it has the entire block chain
+func (e *Extractor) fetchBlockChain() {
+
+	for {
+		e.Lock()
+
+		// This will fetch blocks, the first block will be the one after this one and will return 500 blocks
+		e.RequestBlocks(e.validBlockId, "0")
+		// We will fetch 500 blocks (after this block) so the last block we will get is this block + 500
+		height := e.validBlockHeight + 500
+
+		e.Unlock()
+
+		// IF the last block we've received is within this window, we're done here
+		// TODO: Validate this
+		if int64(e.peer.LastBlock()) < height {
+			return
+		}
+
+		// Otherwise, wait for the blocks for 2 hours
+		blk := <-e.bm.WaitForBlockHeight(height, time.Now().Add(120*time.Minute))
+		if blk == nil {
+			e.logger.Errorw("Did not get block when follwing blockchain", "height", height)
+		}
+
+		e.Lock()
+		e.validBlockId = blk.BlockId
+		e.validBlockHeight = blk.Height
+		e.Unlock()
+
+	}
+
+}
 
 // RequestBlocks will send a GetBlocks Message to the peer
 func (e *Extractor) RequestBlocks(start string, stop string) error {
@@ -223,6 +274,7 @@ func (e *Extractor) OnTx(p *peer.Peer, msg *wire.MsgTx) {
 
 // OnBlock is called when we receive a block message
 func (e *Extractor) OnBlock(p *peer.Peer, msg *wire.MsgBlock, buf []byte) {
+
 	e.throttleBlocks <- struct{}{}
 	go func() {
 		e.handleBlock(msg, len(buf))
@@ -246,16 +298,13 @@ func (e *Extractor) OnInv(p *peer.Peer, msg *wire.MsgInv) {
 			}
 			p.QueueMessage(msg, nil)
 		case wire.InvTypeBlock:
-			// We only need transactions if we're operating with a TxPool or TxBus
-			if e.txp != nil || e.txb != nil {
-				e.logger.Debugw("Got Inv", "type", iv.Type, "txid", iv.Hash.String())
-				msg := wire.NewMsgGetData()
-				err := msg.AddInvVect(iv)
-				if err != nil {
-					e.logger.Errorw("AddInvVect", "error", err)
-				}
-				p.QueueMessage(msg, nil)
+			e.logger.Debugw("Got Inv", "type", iv.Type, "txid", iv.Hash.String())
+			msg := wire.NewMsgGetData()
+			err := msg.AddInvVect(iv)
+			if err != nil {
+				e.logger.Errorw("AddInvVect", "error", err)
 			}
+			p.QueueMessage(msg, nil)
 		}
 	}
 }

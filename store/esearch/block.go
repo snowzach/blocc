@@ -95,43 +95,36 @@ func (e *esearch) Flush(symbol string) error {
 
 func (e *esearch) GetBlockHeight(symbol string) (string, int64, error) {
 
-	// Get the highest height block
-	search := elastic.NewSearchSource().Size(0)
-	search.Aggregation("height", elastic.NewMaxAggregation().Field("height").
-		SubAggregation("_id", elastic.NewTermsAggregation().Field("_id")))
 	res, err := e.client.Search().
 		Index(e.indexName(symbol)).
 		Type(e.index).
-		SearchSource(search).
-		Do(e.ctx)
+		Sort("height", false).
+		FetchSourceContext(elastic.NewFetchSourceContext(true).Include("height").Include("_id")).
+		From(0).Size(1).Do(e.ctx)
 	if err != nil {
 		return "", 0, err
 	}
 
-	// Get the height
-	max, found := res.Aggregations.Max("height")
-	if !found {
-		return "", 0, store.ErrNotFound
-	}
-	if *max.Value < 0.0 {
+	e.logger.Errorf("1")
+
+	if res.Hits.TotalHits == 0 {
 		return "", 0, store.ErrNotFound
 	}
 
-	// Get the ids
-	ids, found := max.Aggregations.Terms("_id")
-	if !found {
-		return "", 0, store.ErrNotFound
-	}
-	if len(ids.Buckets) == 0 {
-		return "", 0, store.ErrNotFound
+	e.logger.Errorf("2")
+
+	var b struct {
+		Id     string `json:"_id"`
+		Height int64  `json:"height"`
 	}
 
-	blockId, ok := ids.Buckets[0].Key.(string)
-	if !ok {
-		return "", 0, store.ErrNotFound
-	}
+	e.logger.Errorf("3")
 
-	return blockId, int64(*max.Value), nil
+	err = json.Unmarshal(*res.Hits.Hits[0].Source, &b)
+
+	e.logger.Errorf("5 %v", b)
+
+	return b.Id, b.Height, nil
 }
 
 func (e *esearch) GetBlockByHeight(symbol string, height int64) (*blocc.Block, error) {
@@ -194,7 +187,7 @@ func (e *esearch) GetBlockIdByHeight(symbol string, height int64) (string, error
 
 }
 
-func (e *esearch) GetHeightdByBlockId(symbol string, blockId string) (int64, error) {
+func (e *esearch) GetHeightByBlockId(symbol string, blockId string) (int64, error) {
 
 	doc, err := e.client.Get().
 		Index(e.indexName(symbol)).

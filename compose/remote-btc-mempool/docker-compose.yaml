@@ -10,7 +10,7 @@ services:
 
    blocc:
      build: ../../
-     command: btc --server --transactions
+     command: /opt/blocc/bloccapi btc --server --transactions
      environment:
        EXTRACTOR_BTC_HOST: "seed.bitcoinstats.com"
        LOGGER_LEVEL: "debug"

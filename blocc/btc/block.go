@@ -58,6 +58,23 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 		e.handleTx(wBlk, int32(x), wTx)
 	}
 
+	e.Lock()
+	// If we know of this previous block, record the height
+	if blk.PrevBlockId == e.validBlockId {
+		blk.Height = e.validBlockHeight + 1
+		e.Unlock()
+	} else {
+		e.Unlock()
+		// If we still don't know, wait for it
+		prevBlk := <-e.bm.WaitForBlockId(blk.PrevBlockId, time.Now().Add(2*time.Minute))
+		if prevBlk != nil && prevBlk.Height != -1 {
+			blk.Height = prevBlk.Height + 1
+		}
+	}
+
+	// Add the block to the block montior
+	e.bm.AddBlock(blk, time.Now().Add(10*time.Minute))
+
 	// if BlockChainStore is activated, store the block
 	if e.bcs != nil {
 		err := e.bcs.InsertBlock(Symbol, blk)
@@ -65,6 +82,8 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 			e.logger.Errorw("Could not BlockStore InsertBlockBTC", "error", err)
 		}
 	}
+
+	e.logger.Infow("Handled Block", "block_id", blk.BlockId, "height", blk.Height)
 
 }
 

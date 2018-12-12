@@ -81,8 +81,8 @@ LOGGER_LEVEL=debug
 | extractor.btc.blocks                 | Should we extract blocks to the block store            | false           |
 | extractor.btc.transactions           | Should we extract transactions into the txstore        | false           |
 | extractor.btc.debug_messages         | Raw message debugging                                  | false           |
-| extractor.btc.start_hash             | Starting hash for extractor (blank=genesis)            | ""              |
-| extractor.btc.start_height           | The starting height for the specified block            | 0               |
+| extractor.btc.seed_block_id          | Starting hash for extractor (blank=genesis)            | ""              |
+| extractor.btc.seed_block_height      | The starting height for the specified block            | 0               |
 | extractor.btc.throttle_blocks        | Number of blocks to process simultaneously             | 30              |
 | extractor.btc.throttle_transactions  | Number of tx to process simultaneously                 | 100             |
 | extractor.btc.transaction_lifetime   | How long to keep transaction in mempool (336h=2 weeks) | "336h"          |
