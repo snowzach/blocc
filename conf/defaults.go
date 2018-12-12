@@ -65,6 +65,7 @@ func init() {
 	config.SetDefault("elasticsearch.index_replicas", 0)
 	config.SetDefault("elasticsearch.index_shards", 5)
 	config.SetDefault("elasticsearch.refresh_interval", "30s")
+	config.SetDefault("elasticsearch.bulk_workers", 2)
 	config.SetDefault("elasticsearch.wipe_confirm", false)
 
 	// Redis Settings

@@ -75,7 +75,7 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 	// Add the block to the block montior
 	e.bm.AddBlock(blk, time.Now().Add(10*time.Minute))
 
-	// if BlockChainStore is activated, store the block
+	// if BlockChainStore is activated, store the block but keep processing
 	if e.bcs != nil {
 		err := e.bcs.InsertBlock(Symbol, blk)
 		if err != nil {

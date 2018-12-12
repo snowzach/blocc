@@ -128,6 +128,7 @@ func New() (*esearch, error) {
 	e.bulk, err = e.client.BulkProcessor().
 		Name("bulk").
 		FlushInterval(5 * time.Second).
+		Workers(config.GetInt("elasticsearch.bulk_workers")).
 		Do(e.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("Could not start BulkProcessor: %s", err)
