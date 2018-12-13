@@ -13,16 +13,16 @@ import (
 func TestMempoolStats(t *testing.T) {
 
 	// Mock Store and server
-	ts := new(mocks.TxStore)
-	mb := new(mocks.TxMsgBus)
-	s, err := New(ts, mb)
+	txp := new(mocks.TxPool)
+	txb := new(mocks.TxBus)
+	s, err := New(txp, txb)
 	assert.Nil(t, err)
 
 	i := &rpc.Symbol{Symbol: "test"}
 
 	// Mock call to item store
-	ts.On("GetTransactionBytes", "test").Once().Return(int64(234), nil)
-	ts.On("GetTransactionCount", "test").Once().Return(int64(123), nil)
+	txp.On("GetTransactionBytes", "test").Once().Return(int64(234), nil)
+	txp.On("GetTransactionCount", "test").Once().Return(int64(123), nil)
 
 	response, err := s.GetMemPoolStats(context.Background(), i)
 	assert.Nil(t, err)
@@ -30,6 +30,7 @@ func TestMempoolStats(t *testing.T) {
 	assert.Equal(t, int64(123), response.Count)
 
 	// Check remaining expectations
-	ts.AssertExpectations(t)
+	txp.AssertExpectations(t)
+	txb.AssertExpectations(t)
 
 }
