@@ -34,7 +34,7 @@ test:
   stage: test
   image: golang:1.11-alpine3.8
   script:
-    - apk add --update-cache make git
+    - apk add --update-cache make git protobuf protobuf-dev
     - CGO_ENABLED=0 make test
 
 latest:
