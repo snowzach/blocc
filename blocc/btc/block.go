@@ -26,7 +26,7 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 		Symbol:      Symbol,
 		BlockId:     wBlk.BlockHash().String(),
 		PrevBlockId: wBlk.Header.PrevBlock.String(),
-		Height:      -1,
+		Height:      blocc.HeightUnknown,
 		Time:        wBlk.Header.Timestamp.UTC().Unix(),
 		Txids:       make([]string, len(wBlk.Transactions), len(wBlk.Transactions)),
 		Data:        make(map[string]string),
@@ -50,14 +50,6 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 	blk.Data["merkle_root"] = wBlk.Header.MerkleRoot.String()
 	blk.Data["nonce"] = cast.ToString(wBlk.Header.Nonce)
 
-	for x, wTx := range wBlk.Transactions {
-		// Build list of transaction ids
-		blk.Txids[x] = wTx.TxHash().String()
-
-		// Handle a transaction
-		e.handleTx(wBlk, int32(x), wTx)
-	}
-
 	e.Lock()
 	// If we know of this previous block, record the height
 	if blk.PrevBlockId == e.validBlockId {
@@ -67,7 +59,7 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 		e.Unlock()
 		// If we still don't know, wait for it
 		prevBlk := <-e.bm.WaitForBlockId(blk.PrevBlockId, time.Now().Add(10*time.Minute))
-		if prevBlk != nil && prevBlk.Height != -1 {
+		if prevBlk != nil && prevBlk.Height != blocc.HeightUnknown {
 			blk.Height = prevBlk.Height + 1
 		}
 	}
@@ -75,8 +67,17 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 	// Add the block to the block montior
 	e.bm.AddBlock(blk, time.Now().Add(20*time.Minute))
 
-	// if BlockChainStore is activated, store the block but keep processing
-	if e.bcs != nil {
+	// Handle the transactions
+	for x, wTx := range wBlk.Transactions {
+		// Build list of transaction ids
+		blk.Txids[x] = wTx.TxHash().String()
+
+		// Handle a transaction
+		e.handleTx(blk, int32(x), wTx)
+	}
+
+	// if BlockChainStore is activated, store the block if we have a height
+	if e.bcs != nil && blk.Height != blocc.HeightUnknown {
 		err := e.bcs.InsertBlock(Symbol, blk)
 		if err != nil {
 			e.logger.Errorw("Could not BlockStore InsertBlockBTC", "error", err)
@@ -87,7 +88,7 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 
 }
 
-func (e *Extractor) handleTx(wBlk *wire.MsgBlock, height int32, wTx *wire.MsgTx) {
+func (e *Extractor) handleTx(blk *blocc.Block, height int32, wTx *wire.MsgTx) {
 
 	// Build the blocc.Tx
 	tx := &blocc.Tx{
@@ -133,14 +134,14 @@ func (e *Extractor) handleTx(wBlk *wire.MsgBlock, height int32, wTx *wire.MsgTx)
 	tx.Data["value"] = cast.ToString(value)
 
 	// If this transaction came as part of a block, add block metadata
-	if wBlk != nil {
+	if blk != nil {
 		tx.Height = int64(height)
-		tx.BlockId = wBlk.BlockHash().String()
-		tx.Time = wBlk.Header.Timestamp.UTC().Unix()
-		tx.BlockTime = wBlk.Header.Timestamp.UTC().Unix()
+		tx.BlockId = blk.BlockId
+		tx.Time = blk.Time
+		tx.BlockTime = blk.Time
 
-		// Insert it into the BlockChainStore
-		if e.bcs != nil {
+		// Insert it into the BlockChainStore but only if we know of it as part of the chain
+		if e.bcs != nil && blk.Height != blocc.HeightUnknown {
 			err := e.bcs.InsertTransaction(Symbol, tx)
 			if err != nil {
 				e.logger.Errorw("Could not BlockStore InsertTransaction", "error", err)

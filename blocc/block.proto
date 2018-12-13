@@ -24,12 +24,11 @@ message Tx {
     string symbol = 2;
     string block_id = 3;
     string tx_id = 4;
-    int64 height = 5;
-    string prev_block_id = 6;
-    int64 time = 7;
-    int64 block_time = 8;
-    repeated string addresses = 10;
-    bytes raw = 11 [(gogoproto.casttype) = "Raw"];
+    int64 height = 5 [(gogoproto.jsontag) = "height"];
+    int64 time = 6;
+    int64 block_time = 7;
+    repeated string addresses = 8;
+    bytes raw = 10 [(gogoproto.casttype) = "Raw"];
 
     map<string, string> data = 15;
 }

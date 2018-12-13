@@ -117,11 +117,12 @@ func New() (*esearch, error) {
 			return nil, fmt.Errorf("Could not wipe: %v", err)
 		}
 
-		err = e.ApplyIndexTemplate()
-		if err != nil {
-			return nil, fmt.Errorf("Could not ApplyIndexTemplate: %v", err)
-		}
+	}
 
+	// Apply the index template
+	err = e.ApplyIndexTemplate()
+	if err != nil {
+		return nil, fmt.Errorf("Could not ApplyIndexTemplate: %v", err)
 	}
 
 	// Start up the bulk processor

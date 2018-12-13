@@ -4,6 +4,10 @@ import (
 	"time"
 )
 
+const (
+	HeightUnknown = -1
+)
+
 // BlockChainStore is an interface that is used to get and store blocks and transactions
 type BlockChainStore interface {
 	Init(symbol string) error

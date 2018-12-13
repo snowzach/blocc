@@ -72,7 +72,7 @@ func (e *esearch) InsertTransaction(symbol string, t *blocc.Tx) error {
 	e.bulk.Add(elastic.NewBulkIndexRequest().
 		Index(e.indexName(symbol)).
 		Type(e.index).
-		Id(t.TxId).
+		// Id(t.TxId).
 		Doc(t))
 	return nil
 
@@ -143,18 +143,22 @@ func (e *esearch) GetBlockByHeight(symbol string, height int64) (*blocc.Block, e
 
 func (e *esearch) GetBlockByBlockId(symbol string, blockId string) (*blocc.Block, error) {
 
-	doc, err := e.client.Get().
+	res, err := e.client.Search().
 		Index(e.indexName(symbol)).
 		Type(e.index).
-		Id(blockId).
-		Do(e.ctx)
+		Query(elastic.NewTermQuery("block_id", blockId)).
+		From(0).Size(1).Do(e.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("Could not get block: %v", err)
 	}
 
+	if res.Hits.TotalHits == 0 {
+		return nil, store.ErrNotFound
+	}
+
 	// Unmarshal the block
 	b := new(blocc.Block)
-	err = json.Unmarshal(*doc.Source, b)
+	err = json.Unmarshal(*res.Hits.Hits[0].Source, b)
 	return b, err
 
 }
@@ -181,19 +185,23 @@ func (e *esearch) GetBlockIdByHeight(symbol string, height int64) (string, error
 
 func (e *esearch) GetHeightByBlockId(symbol string, blockId string) (int64, error) {
 
-	doc, err := e.client.Get().
+	res, err := e.client.Search().
 		Index(e.indexName(symbol)).
 		Type(e.index).
-		Id(blockId).
+		Query(elastic.NewTermQuery("block_id", blockId)).
 		FetchSourceContext(elastic.NewFetchSourceContext(true).Include("height")).
-		Do(e.ctx)
+		From(0).Size(1).Do(e.ctx)
 	if err != nil {
 		return 0, fmt.Errorf("Could not get block: %v", err)
 	}
 
+	if res.Hits.TotalHits == 0 {
+		return 0, store.ErrNotFound
+	}
+
 	// Unmarshal the block
 	b := new(blocc.Block)
-	err = json.Unmarshal(*doc.Source, b)
+	err = json.Unmarshal(*res.Hits.Hits[0].Source, b)
 	return b.Height, err
 
 }
