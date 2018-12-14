@@ -13,6 +13,7 @@ import (
 	config "github.com/spf13/viper"
 	"go.uber.org/zap"
 
+	"git.coinninja.net/backend/blocc/blocc"
 	"git.coinninja.net/backend/blocc/conf"
 	"git.coinninja.net/backend/blocc/embed"
 )
@@ -26,15 +27,18 @@ type esearch struct {
 	ctx    context.Context
 
 	index string
+
+	blocc.BlockMonitor
 }
 
 // NewES creates a connection to Elasticsearch to interact with
 func New() (*esearch, error) {
 
 	e := &esearch{
-		logger: zap.S().With("package", "blockstore.esearch"),
-		ctx:    context.Background(),
-		index:  config.GetString("elasticsearch.index"),
+		logger:       zap.S().With("package", "blockstore.esearch"),
+		ctx:          context.Background(),
+		index:        config.GetString("elasticsearch.index"),
+		BlockMonitor: blocc.NewBlockMonitorMem(),
 	}
 
 	if config.GetString("elasticsearch.host") != "" && config.GetString("elasticsearch.port") != "" {

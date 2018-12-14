@@ -3,6 +3,7 @@ package esearch
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/olivere/elastic"
 
@@ -50,6 +51,9 @@ func (e *esearch) InsertBlock(symbol string, b *blocc.Block) error {
 		Type(e.index).
 		Id(b.BlockId).
 		Doc(b))
+
+	e.BlockMonitor.AddBlock(b, time.Now().Add(5*time.Minute))
+
 	return nil
 
 }
@@ -63,6 +67,9 @@ func (e *esearch) UpsertBlock(symbol string, b *blocc.Block) error {
 		Id(b.BlockId).
 		Doc(b).
 		DocAsUpsert(true))
+
+	e.BlockMonitor.AddBlock(b, time.Now().Add(5*time.Minute))
+
 	return nil
 
 }

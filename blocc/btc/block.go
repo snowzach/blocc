@@ -50,22 +50,30 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 	blk.Data["merkle_root"] = wBlk.Header.MerkleRoot.String()
 	blk.Data["nonce"] = cast.ToString(wBlk.Header.Nonce)
 
-	e.Lock()
-	// If we know of this previous block, record the height
-	if blk.PrevBlockId == e.validBlockId {
-		blk.Height = e.validBlockHeight + 1
-		e.Unlock()
-	} else {
-		e.Unlock()
-		// If we still don't know, wait for it
-		prevBlk := <-e.bm.WaitForBlockId(blk.PrevBlockId, time.Now().Add(10*time.Minute))
-		if prevBlk != nil && prevBlk.Height != blocc.HeightUnknown {
-			blk.Height = prevBlk.Height + 1
+	// if BlockChainStore is activated, determine the height if possible and store the block
+	if e.bcs != nil {
+		e.Lock()
+		// If we know of this previous block, record the height
+		if blk.PrevBlockId == e.validBlockId {
+			blk.Height = e.validBlockHeight + 1
+			e.Unlock()
+		} else {
+			e.Unlock()
+			// If we still don't know, wait for it but only if we
+			prevBlk := <-e.bcs.WaitForBlockId(blk.PrevBlockId, time.Now().Add(10*time.Minute))
+			if prevBlk != nil && prevBlk.Height != blocc.HeightUnknown {
+				blk.Height = prevBlk.Height + 1
+			}
+		}
+
+		// If we figure out the height, store the block
+		if blk.Height != blocc.HeightUnknown {
+			err := e.bcs.InsertBlock(Symbol, blk)
+			if err != nil {
+				e.logger.Errorw("Could not BlockStore InsertBlockBTC", "error", err)
+			}
 		}
 	}
-
-	// Add the block to the block montior
-	e.bm.AddBlock(blk, time.Now().Add(20*time.Minute))
 
 	// Handle the transactions
 	for x, wTx := range wBlk.Transactions {
@@ -74,14 +82,6 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 
 		// Handle a transaction
 		e.handleTx(blk, int32(x), wTx)
-	}
-
-	// if BlockChainStore is activated, store the block if we have a height
-	if e.bcs != nil && blk.Height != blocc.HeightUnknown {
-		err := e.bcs.InsertBlock(Symbol, blk)
-		if err != nil {
-			e.logger.Errorw("Could not BlockStore InsertBlockBTC", "error", err)
-		}
 	}
 
 	e.logger.Infow("Handled Block", "block_id", blk.BlockId, "height", blk.Height)
