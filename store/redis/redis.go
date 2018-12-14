@@ -32,9 +32,10 @@ func New(prefixes ...string) (*client, error) {
 
 	// Initialize client
 	c.client = redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs:    []string{net.JoinHostPort(config.GetString("redis.host"), config.GetString("redis.port"))},
-		Password: config.GetString("redis.password"),
-		DB:       config.GetInt("redis.index"),
+		Addrs:      []string{net.JoinHostPort(config.GetString("redis.host"), config.GetString("redis.port"))},
+		Password:   config.GetString("redis.password"),
+		DB:         config.GetInt("redis.index"),
+		MasterName: config.GetString("redis.master_name"),
 	})
 	_, err := c.client.Ping().Result()
 	if err != nil {

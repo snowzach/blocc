@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"git.coinninja.net/backend/blocc/server/rpc"
+	"git.coinninja.net/backend/blocc/store"
 )
 
 // GetMemPoolStats returns mempool statistics
@@ -17,20 +18,42 @@ func (s *Server) GetMemPoolStats(ctx context.Context, input *rpc.Symbol) (*rpc.M
 		input.Symbol = s.defaultSymbol
 	}
 
+	mps := new(rpc.MemPoolStats)
+
+	// Check the cache
+	err := s.dc.GetScan("mempool", "stats", mps)
+	if err == nil {
+		return mps, nil
+	} else if err != nil && err != store.ErrNotFound {
+		s.logger.Errorw("Could not check DistCache for stats", "error", err)
+		return nil, grpc.Errorf(codes.Internal, "Could not GetMemPoolStats")
+
+	}
+
+	// Fetch the values
 	count, err := s.txp.GetTransactionCount(input.Symbol)
 	if err != nil {
-		return nil, grpc.Errorf(codes.Internal, "Could not GetTransactionCount: %v", err)
+		s.logger.Errorw("Could not GetTransactionCount", "error", err)
+		return nil, grpc.Errorf(codes.Internal, "Could not GetMemPoolStats")
 	}
 	size, err := s.txp.GetTransactionBytes(input.Symbol)
 	if err != nil {
-		return nil, grpc.Errorf(codes.Internal, "Could not GetTransactionBytes: %v", err)
+		s.logger.Errorw("Could not GetTransactionBytes", "error", err)
+		return nil, grpc.Errorf(codes.Internal, "Could not GetMemPoolStats")
 	}
 
-	return &rpc.MemPoolStats{
-		Time:   time.Now().UTC().Unix(),
-		Count:  count,
-		MPSize: size,
-	}, nil
+	// Build the return
+	mps.Time = time.Now().UTC().Unix()
+	mps.Count = count
+	mps.MPSize = size
+
+	// Set it in the cache
+	err = s.dc.Set("mempool", "stats", mps, 15*time.Second)
+	if err != nil {
+		s.logger.Errorw("Could not set DistCache stats", "error", err)
+	}
+
+	return mps, nil
 
 }
 
@@ -43,7 +66,8 @@ func (s *Server) GetMemPoolStream(input *rpc.Symbol, server rpc.MemPoolRPC_GetMe
 
 	sub, err := s.txb.Subscribe(input.Symbol, "stream")
 	if err != nil {
-		return grpc.Errorf(codes.Internal, "Could not TxMsgBus.Subscribe: %v", err)
+		s.logger.Errorw("Could not TxMsgBus.Subscribe", "error", err)
+		return grpc.Errorf(codes.Internal, "Could not GetMemPoolStream")
 	}
 	subChan := sub.Channel()
 

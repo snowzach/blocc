@@ -5,25 +5,25 @@ import (
 	"time"
 )
 
-type bmblock struct {
+type BlockMonitorMemBlock struct {
 	block   *Block
 	waiters []chan *Block
 	expires time.Time
 	sync.Mutex
 }
 
-type bmonitor struct {
-	byId        map[string]*bmblock
-	byHeight    map[int64]*bmblock
+type BlockMonitorMem struct {
+	byId        map[string]*BlockMonitorMemBlock
+	byHeight    map[int64]*BlockMonitorMemBlock
 	nextExpires time.Time
 	sync.Mutex
 }
 
-func NewBMonitorMemory() *bmonitor {
+func NewBlockMonitorMem() *BlockMonitorMem {
 
-	bhm := &bmonitor{
-		byId:        make(map[string]*bmblock),
-		byHeight:    make(map[int64]*bmblock),
+	bhm := &BlockMonitorMem{
+		byId:        make(map[string]*BlockMonitorMemBlock),
+		byHeight:    make(map[int64]*BlockMonitorMemBlock),
 		nextExpires: time.Time{}, // Zero Value
 	}
 
@@ -93,7 +93,7 @@ func blockChan(b *Block) <-chan *Block {
 }
 
 // Wait for the block id
-func (bhm *bmonitor) WaitForBlockId(blockId string, expires time.Time) <-chan *Block {
+func (bhm *BlockMonitorMem) WaitForBlockId(blockId string, expires time.Time) <-chan *Block {
 	bhm.Lock()
 	// Do we have this block or have other waiters
 	if b, ok := bhm.byId[blockId]; ok {
@@ -111,7 +111,7 @@ func (bhm *bmonitor) WaitForBlockId(blockId string, expires time.Time) <-chan *B
 	}
 
 	// We don't have record of this block yet
-	b := &bmblock{
+	b := &BlockMonitorMemBlock{
 		waiters: make([]chan *Block, 0),
 		expires: expires,
 	}
@@ -130,7 +130,7 @@ func (bhm *bmonitor) WaitForBlockId(blockId string, expires time.Time) <-chan *B
 }
 
 // Wait for the block height
-func (bhm *bmonitor) WaitForBlockHeight(height int64, expires time.Time) <-chan *Block {
+func (bhm *BlockMonitorMem) WaitForBlockHeight(height int64, expires time.Time) <-chan *Block {
 	bhm.Lock()
 	// Do we have this block or have other waiters
 	if b, ok := bhm.byHeight[height]; ok {
@@ -148,7 +148,7 @@ func (bhm *bmonitor) WaitForBlockHeight(height int64, expires time.Time) <-chan 
 	}
 
 	// We don't have record of this block yet
-	b := &bmblock{
+	b := &BlockMonitorMemBlock{
 		waiters: make([]chan *Block, 0),
 		expires: expires,
 	}
@@ -166,7 +166,7 @@ func (bhm *bmonitor) WaitForBlockHeight(height int64, expires time.Time) <-chan 
 	return c
 }
 
-func (bhm *bmonitor) AddBlock(block *Block, expires time.Time) {
+func (bhm *BlockMonitorMem) AddBlock(block *Block, expires time.Time) {
 	bhm.Lock()
 	defer bhm.Unlock()
 
@@ -183,7 +183,7 @@ func (bhm *bmonitor) AddBlock(block *Block, expires time.Time) {
 		b.waiters = nil
 		b.Unlock()
 	} else {
-		b := &bmblock{
+		b := &BlockMonitorMemBlock{
 			block:   block,
 			expires: expires,
 		}
@@ -209,7 +209,7 @@ func (bhm *bmonitor) AddBlock(block *Block, expires time.Time) {
 			b.waiters = nil
 			b.Unlock()
 		} else {
-			b := &bmblock{
+			b := &BlockMonitorMemBlock{
 				block:   block,
 				expires: expires,
 			}

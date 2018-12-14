@@ -24,6 +24,9 @@ type BlockChainStore interface {
 	GetBlockIdByHeight(symbol string, height int64) (string, error)
 	GetHeightByBlockId(symbol string, blockId string) (int64, error)
 
+	// The BlockChainStore must implement a block monitor
+	BlockMonitorWaitFor
+
 	// Get Block by height or id
 	GetBlockByHeight(symbol string, height int64) (*Block, error)
 	GetBlockByBlockId(symbol string, blockId string) (*Block, error)
@@ -70,7 +73,11 @@ type TxChannel interface {
 
 // BlockHeightMonitor is a lookup/cachce provider
 type BlockMonitor interface {
+	AddBlock(block *Block, expires time.Time)
+	BlockMonitorWaitFor
+}
+
+type BlockMonitorWaitFor interface {
 	WaitForBlockId(blockId string, expires time.Time) <-chan *Block
 	WaitForBlockHeight(height int64, expires time.Time) <-chan *Block
-	AddBlock(block *Block, expires time.Time)
 }

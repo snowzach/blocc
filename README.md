@@ -77,6 +77,7 @@ LOGGER_LEVEL=debug
 | redis.port                           | Port for redis                                         | "6379"          |
 | redis.password                       | Redis password                                         | "redis"         |
 | redis.index                          | Redis index                                            | 0               |
+| redis.master_name                    | Redis Master Name (for Sentinal)                       | ""              |
 | ---                                  | ---                                                    | ---             |
 | extractor.btc.host                   | Host for bitcoind node                                 | "bitcoind"      |
 | extractor.btc.port                   | Port for bitcoind node                                 | "8333"          |

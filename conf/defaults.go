@@ -73,6 +73,7 @@ func init() {
 	// Redis Settings
 	config.SetDefault("redis.host", "redis")
 	config.SetDefault("redis.port", "6379")
+	config.SetDefault("redis.master_name", "")
 	config.SetDefault("redis.password", "")
 	config.SetDefault("redis.index", 0)
 

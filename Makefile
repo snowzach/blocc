@@ -22,7 +22,7 @@ default: ${EXECUTABLE}
 tools: ${TOOLS}
 
 ${GOPATH}/bin/go-bindata:
-	GO111MODULE=off go get -u github.com/go-bindata/go-bindata/...
+	GO111MODULE=off go get -u github.com/go-bindata/go-bindata/go-bindata
 
 ${GOPATH}/bin/mockery:
 	go get github.com/vektra/mockery/cmd/mockery
@@ -51,12 +51,14 @@ ${EMBEDDIR}/bindata.go: ${EMBED}
 	# Building bindata
 	go-bindata -o ${EMBEDDIR}/bindata.go -prefix ${EMBEDDIR} -pkg embed ${EMBED}
 
-.PHONY: mocks
 mocks: tools
-	mockery -dir ./blocc -name BlockStore
-	mockery -dir ./blocc -name TxStore
-	mockery -dir ./blocc -name TxMsgBus
+	mockery -dir ./blocc -name BlockChainStore
+	mockery -dir ./blocc -name TxPool
+	mockery -dir ./blocc -name TxBus
 	mockery -dir ./blocc -name TxChannel
+	mockery -dir ./blocc -name MetricStore
+	mockery -dir ./blocc -name BlockMonitor
+	mockery -dir ./store -name DistCache
 
 .PHONY: ${EXECUTABLE}
 ${EXECUTABLE}: tools ${PROTOS} ${EMBEDDIR}/bindata.go
