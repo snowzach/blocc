@@ -212,6 +212,7 @@ production-server:tagged:
       kubectl --namespace=${CI_ENVIRONMENT_SLUG}-public patch deployment blocc-server -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}" --record
     fi
     kubectl -n ${CI_ENVIRONMENT_SLUG}-public rollout status deployment blocc-server -w
+  when: manual
   only:
     - tags@backend/blocc
   except:
