@@ -59,6 +59,7 @@ mocks: tools
 	mockery -dir ./blocc -name MetricStore
 	mockery -dir ./blocc -name BlockMonitor
 	mockery -dir ./store -name DistCache
+	mockery -dir $(shell go list -e -f '{{.Dir}}' github.com/go-redis/redis) -name UniversalClient
 
 .PHONY: ${EXECUTABLE}
 ${EXECUTABLE}: tools ${PROTOS} ${EMBEDDIR}/bindata.go
