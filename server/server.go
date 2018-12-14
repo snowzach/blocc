@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/cors"
 	"github.com/go-chi/render"
 	"github.com/gogo/gateway"
 	"github.com/gogo/protobuf/jsonpb"
@@ -89,6 +90,15 @@ func New(dc store.DistCache, txp blocc.TxPool, txb blocc.TxBus) (*Server, error)
 			})
 		})
 	}
+
+	// CORS Config
+	r.Use(cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{http.MethodHead, http.MethodOptions, http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch},
+		AllowedHeaders:   []string{"*"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}).Handler)
 
 	// GRPC Interceptors
 	streamInterceptors := []grpc.StreamServerInterceptor{}
