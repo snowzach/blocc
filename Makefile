@@ -22,7 +22,7 @@ default: ${EXECUTABLE}
 tools: ${TOOLS}
 
 ${GOPATH}/bin/go-bindata:
-	GO111MODULE=off go get -u github.com/go-bindata/go-bindata/...
+	GO111MODULE=off go get -u github.com/go-bindata/go-bindata/go-bindata
 
 ${GOPATH}/bin/mockery:
 	go get github.com/vektra/mockery/cmd/mockery
