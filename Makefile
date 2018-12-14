@@ -58,6 +58,7 @@ mocks: tools
 	mockery -dir ./blocc -name TxChannel
 	mockery -dir ./blocc -name MetricStore
 	mockery -dir ./blocc -name BlockMonitor
+	mockery -dir ./store -name DistCache
 
 .PHONY: ${EXECUTABLE}
 ${EXECUTABLE}: tools ${PROTOS} ${EMBEDDIR}/bindata.go

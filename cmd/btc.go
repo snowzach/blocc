@@ -9,6 +9,7 @@ import (
 	"git.coinninja.net/backend/blocc/blocc/btc"
 	"git.coinninja.net/backend/blocc/conf"
 	"git.coinninja.net/backend/blocc/server"
+	"git.coinninja.net/backend/blocc/store"
 	"git.coinninja.net/backend/blocc/store/esearch"
 	"git.coinninja.net/backend/blocc/store/redis"
 )
@@ -55,17 +56,26 @@ var (
 				ms = es
 			}
 
-			// Redis will implement the TxStore/MemPool
+			// Redis will implement the TxPool/TxBus
 			if btcCmdTxns || btcCmdServer {
 				r, err := redis.New("mempool")
 				if err != nil {
-					logger.Fatalw("BlockCache Error", "error", err)
+					logger.Fatalw("TxPool/TxBus Error", "error", err)
 				}
 
 				// Redis implents TxStore
 				txp = r
 				// Redis will also implement the message bus
 				txb = r
+			}
+
+			// Redis will implement a dist cache if we are running the server
+			var dc store.DistCache
+			if btcCmdServer {
+				dc, err = redis.New("distcache")
+				if err != nil {
+					logger.Fatalw("DistCache Error", "error", err)
+				}
 			}
 
 			// Start the extractor
@@ -81,7 +91,7 @@ var (
 			//  Also start the web server
 			if btcCmdServer {
 				// Create the server
-				s, err := server.New(txp, txb)
+				s, err := server.New(dc, txp, txb)
 				if err != nil {
 					logger.Fatalw("Could not create server",
 						"error", err,

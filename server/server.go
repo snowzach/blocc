@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"git.coinninja.net/backend/blocc/blocc"
+	"git.coinninja.net/backend/blocc/store"
 )
 
 // When starting to listen, we will reigster gateway functions
@@ -45,12 +46,13 @@ type Server struct {
 	gwRegFuncs []gwRegFunc
 
 	defaultSymbol string
+	dc            store.DistCache
 	txp           blocc.TxPool
 	txb           blocc.TxBus
 }
 
 // New will setup the server
-func New(txp blocc.TxPool, txb blocc.TxBus) (*Server, error) {
+func New(dc store.DistCache, txp blocc.TxPool, txb blocc.TxBus) (*Server, error) {
 
 	// This router is used for http requests only, setup all of our middleware
 	r := chi.NewRouter()
@@ -110,6 +112,7 @@ func New(txp blocc.TxPool, txb blocc.TxBus) (*Server, error) {
 		gwRegFuncs: make([]gwRegFunc, 0),
 
 		defaultSymbol: config.GetString("server.default_symbol"),
+		dc:            dc,
 		txp:           txp,
 		txb:           txb,
 	}
