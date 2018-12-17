@@ -136,6 +136,7 @@ func New() (*esearch, error) {
 		FlushInterval(5 * time.Second).
 		Workers(config.GetInt("elasticsearch.bulk_workers")).
 		Stats(config.GetBool("elasticsearch.bulk_stats")).
+		After(e.bulkAfter).
 		Do(e.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("Could not start BulkProcessor: %s", err)
@@ -273,4 +274,26 @@ func parseElasticError(err error) error {
 		return errors.New(errString)
 	}
 	return err
+}
+
+// Check for errors in bulk requests
+func (e *esearch) bulkAfter(executionId int64, requests []elastic.BulkableRequest, response *elastic.BulkResponse, err error) {
+	if err != nil {
+		e.logger.Errorw("Bulk Error", "error", err)
+		return
+	}
+	if response.Errors {
+		for _, item := range response.Items {
+			for _, op := range item {
+				if op.Error != nil {
+					e.logger.Errorw("Bulk Item Error",
+						"index", op.Index,
+						"op", op,
+						"reason", op.Error.Reason,
+						"caused_by", op.Error.CausedBy,
+					)
+				}
+			}
+		}
+	}
 }
