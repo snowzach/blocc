@@ -11,11 +11,14 @@ const (
 // BlockChainStore is an interface that is used to get and store blocks and transactions
 type BlockChainStore interface {
 	Init(symbol string) error
-	Flush(symbol string) error
 
 	InsertBlock(symbol string, blk *Block) error
 	UpsertBlock(symbol string, blk *Block) error
 	InsertTransaction(symbol string, blk *Tx) error
+	InsertOutput(symbol string, out *Out) error
+
+	FlushBlocks(symbol string) error
+	FlushTransactions(symbol string) error
 
 	// Get the highest block id and height
 	GetBlockHeight(symbol string) (string, int64, error)
@@ -23,9 +26,6 @@ type BlockChainStore interface {
 	// Get Height <-> BlockId
 	GetBlockIdByHeight(symbol string, height int64) (string, error)
 	GetHeightByBlockId(symbol string, blockId string) (int64, error)
-
-	// The BlockChainStore must implement a block monitor
-	BlockMonitorWaitFor
 
 	// Get Block by height or id
 	GetBlockByHeight(symbol string, height int64) (*Block, error)

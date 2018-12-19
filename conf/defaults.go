@@ -38,6 +38,7 @@ func init() {
 	config.SetDefault("server.rest.orig_names", true)
 	// Other options
 	config.SetDefault("server.default_symbol", "btc")
+	config.SetDefault("server.cache_duration", "7s")
 
 	// Database Settings
 	config.SetDefault("storage.type", "postgres")
@@ -53,7 +54,6 @@ func init() {
 	config.SetDefault("storage.wipe_confirm", false)
 
 	// Set Defaults - Elasticsearch
-	config.SetDefault("elasticsearch.mapping_file", "") // Defaults to loading embedded mapping.json if not specified
 	config.SetDefault("elasticsearch.request_log", false)
 	config.SetDefault("elasticsearch.debug", false)
 	config.SetDefault("elasticsearch.sniff", true)
@@ -62,13 +62,23 @@ func init() {
 	config.SetDefault("elasticsearch.retries", 5)
 	config.SetDefault("elasticsearch.sleep_between_retries", "5s")
 	config.SetDefault("elasticsearch.index", "blocc")
-	config.SetDefault("elasticsearch.index_replicas", 0)
-	config.SetDefault("elasticsearch.index_shards", 5)
-	config.SetDefault("elasticsearch.refresh_interval", "30s")
 	config.SetDefault("elasticsearch.bulk_workers", 2)
 	config.SetDefault("elasticsearch.bulk_stats", false)
 	config.SetDefault("elasticsearch.bulk_stats_interval", "60s")
 	config.SetDefault("elasticsearch.wipe_confirm", false)
+
+	config.SetDefault("elasticsearch.block.template_file", "") // Defaults to loading embedded template-block.json if not specified
+	config.SetDefault("elasticsearch.block.index_shards", 5)
+	config.SetDefault("elasticsearch.block.index_replicas", 0)
+	config.SetDefault("elasticsearch.block.refresh_interval", "30s")
+	config.SetDefault("elasticsearch.tx.template_file", "") // Defaults to loading embedded template-tx.json if not specified
+	config.SetDefault("elasticsearch.tx.index_shards", 25)
+	config.SetDefault("elasticsearch.tx.index_replicas", 0)
+	config.SetDefault("elasticsearch.tx.refresh_interval", "30s")
+	config.SetDefault("elasticsearch.out.template_file", "") // Defaults to loading embedded template-tx.json if not specified
+	config.SetDefault("elasticsearch.out.index_shards", 20)
+	config.SetDefault("elasticsearch.out.index_replicas", 0)
+	config.SetDefault("elasticsearch.out.refresh_interval", "30s")
 
 	// Redis Settings
 	config.SetDefault("redis.host", "redis")

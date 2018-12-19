@@ -6,29 +6,35 @@ import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 option go_package = "git.coinninja.net/backend/blocc/blocc";
 
 message Block {
-    string type = 1;
-    string symbol = 2;
-    string block_id = 3;
-    int64 height = 4 [(gogoproto.jsontag) = "height"];
-    string prev_block_id = 5;
-    int64 time = 6;
-    repeated string addresses = 8;
-    repeated string txids = 9;
-    bytes raw = 10 [(gogoproto.casttype) = "Raw"];
+    string block_id = 1;
+    int64 height = 2 [(gogoproto.jsontag) = "height"]; // Remove omitempty
+    string prev_block_id = 3;
+    int64 time = 4;
+    repeated string addresses = 5 [(gogoproto.jsontag) = "address"];
+    repeated string tx_ids = 6 [(gogoproto.jsontag) = "tx_id"];
+    bytes raw = 7 [(gogoproto.casttype) = "Raw"];
 
     map<string, string> data = 15;
 }
 
 message Tx {
-    string type = 1;
-    string symbol = 2;
-    string block_id = 3;
+    string block_id = 1;
+    int64 block_height = 2 [(gogoproto.jsontag) = "block_height"]; // Remove omitempty
+    int64 block_time = 3;
     string tx_id = 4;
-    int64 height = 5 [(gogoproto.jsontag) = "height"];
+    int64 height = 5 [(gogoproto.jsontag) = "height"]; // Remove omitempty
     int64 time = 6;
-    int64 block_time = 7;
-    repeated string addresses = 8;
-    bytes raw = 10 [(gogoproto.casttype) = "Raw"];
+    repeated string addresses = 7;
+    bytes raw = 8 [(gogoproto.casttype) = "Raw"];
+
+    map<string, string> data = 15;
+}
+
+message Out {
+    string tx_id = 1;
+    int64 height = 2 [(gogoproto.jsontag) = "height"]; // Remove omitempty
+    int64 value = 3;
+    bytes raw = 4 [(gogoproto.casttype) = "Raw"];
 
     map<string, string> data = 15;
 }

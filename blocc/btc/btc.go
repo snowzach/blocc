@@ -30,6 +30,7 @@ type Extractor struct {
 	txp         blocc.TxPool
 	txb         blocc.TxBus
 	ms          blocc.MetricStore
+	bm          blocc.BlockMonitor
 
 	extractBlocks bool
 	extractTxns   bool
@@ -60,6 +61,7 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 		txp:    txp,
 		txb:    txb,
 		ms:     ms,
+		bm:     blocc.NewBlockMonitorMem(),
 
 		throttleBlocks: make(chan struct{}, config.GetInt("extractor.btc.throttle_blocks")),
 		throttleTxns:   make(chan struct{}, config.GetInt("extractor.btc.throttle_transactions")),
@@ -220,7 +222,7 @@ func (e *Extractor) fetchBlockChain() {
 		}
 
 		// Otherwise, wait for the blocks for 2 hours
-		blk := <-e.bcs.WaitForBlockHeight(height, time.Now().Add(120*time.Minute))
+		blk := <-e.bm.WaitForBlockHeight(height, time.Now().Add(120*time.Minute))
 		if blk == nil {
 			e.logger.Errorw("Did not get block when following blockchain", "height", height)
 		} else {

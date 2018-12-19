@@ -48,7 +48,7 @@ func (s *Server) GetMemPoolStats(ctx context.Context, input *rpc.Symbol) (*rpc.M
 	mps.MPSize = size
 
 	// Set it in the cache
-	err = s.dc.Set("mempool", "stats", mps, 15*time.Second)
+	err = s.dc.Set("mempool", "stats", mps, s.cacheTimeout)
 	if err != nil {
 		s.logger.Errorw("Could not set DistCache stats", "error", err)
 	}

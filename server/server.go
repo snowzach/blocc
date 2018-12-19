@@ -47,6 +47,7 @@ type Server struct {
 	gwRegFuncs []gwRegFunc
 
 	defaultSymbol string
+	cacheTimeout  time.Duration
 	dc            store.DistCache
 	txp           blocc.TxPool
 	txb           blocc.TxBus
@@ -122,6 +123,7 @@ func New(dc store.DistCache, txp blocc.TxPool, txb blocc.TxBus) (*Server, error)
 		gwRegFuncs: make([]gwRegFunc, 0),
 
 		defaultSymbol: config.GetString("server.default_symbol"),
+		cacheTimeout:  config.GetDuration("server.cache_duration"),
 		dc:            dc,
 		txp:           txp,
 		txb:           txb,

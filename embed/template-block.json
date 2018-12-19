@@ -1,0 +1,51 @@
+{
+    "settings": {
+        "index": {
+            "number_of_replicas": 0,
+            "number_of_shards": 5,
+            "refresh_interval": "30s",
+            "mapping.ignore_malformed": true
+        }
+    },
+    "mappings": {
+        "blocc": {
+            "dynamic_templates": [
+                {
+                    "data": {
+                        "match": "data.*",
+                        "mapping": {
+                            "index": false,
+                            "norms": false,
+                            "doc_values": false,
+                            "fielddata": false,
+                            "type": "keyword"
+                        }
+                    }
+                },
+                {
+                    "star_as_keyword": {
+                        "match_mapping_type": "*",
+                        "mapping": {
+                            "type": "keyword",
+                            "norms": false
+                        }
+                    }
+                }
+            ],
+            "properties": {
+                "height": {
+                    "type": "long"
+                },
+                "time": {
+                    "type": "long"
+                },
+                "raw": {
+                    "type": "binary"
+                },
+                "data": {
+                    "type": "object"
+                }
+            }
+        }
+    }
+}

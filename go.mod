@@ -1,14 +1,15 @@
 module git.coinninja.net/backend/blocc
 
 require (
-	cloud.google.com/go v0.33.1 // indirect
+	cloud.google.com/go v0.34.0 // indirect
 	contrib.go.opencensus.io/exporter/stackdriver v0.8.0 // indirect
-	git.apache.org/thrift.git v0.0.0-20181129202844-2c69b5a01e58 // indirect
+	git.apache.org/thrift.git v0.0.0-20181218151757-9b75e4fe745a // indirect
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/ajg/form v0.0.0-20160822230020-523a5da1a92f // indirect
-	github.com/aws/aws-sdk-go v1.15.88 // indirect
+	github.com/aws/aws-sdk-go v1.16.8 // indirect
 	github.com/btcsuite/btcd v0.0.0-20181130015935-7d2daa5bfef2
 	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
+	github.com/btcsuite/goleveldb v1.0.0 // indirect
 	github.com/cznic/b v0.0.0-20181122101859-a26611c4d92d // indirect
 	github.com/cznic/fileutil v0.0.0-20181122101858-4d67cfea8c87 // indirect
 	github.com/cznic/golex v0.0.0-20181122101858-9c343928389c // indirect
@@ -17,8 +18,9 @@ require (
 	github.com/cznic/sortutil v0.0.0-20181122101858-f5f958428db8 // indirect
 	github.com/cznic/strutil v0.0.0-20181122101858-275e90344537 // indirect
 	github.com/cznic/zappy v0.0.0-20181122101859-ca47d358d4b1 // indirect
-	github.com/docker/distribution v2.6.2+incompatible // indirect
+	github.com/docker/distribution v2.7.0+incompatible // indirect
 	github.com/docker/docker v1.13.1 // indirect
+	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fortytw2/leaktest v1.3.0 // indirect
 	github.com/gavv/httpexpect v0.0.0-20180803094507-bdde30871313
@@ -26,25 +28,29 @@ require (
 	github.com/go-chi/chi v3.3.3+incompatible
 	github.com/go-chi/cors v1.0.0
 	github.com/go-chi/render v1.0.1
+	github.com/go-ini/ini v1.39.3 // indirect
 	github.com/go-redis/redis v6.14.2+incompatible
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
 	github.com/gocql/gocql v0.0.0-20181124151448-70385f88b28b // indirect
 	github.com/gogo/gateway v1.0.0
-	github.com/gogo/protobuf v1.1.1
+	github.com/gogo/protobuf v1.2.0
 	github.com/golang-migrate/migrate/v4 v4.1.0
-	github.com/golang/lint v0.0.0-20181026193005-c67002cb31c3 // indirect
+	github.com/golang/lint v0.0.0-20181217174547-8f45f776aaf1 // indirect
+	github.com/golang/mock v1.2.0 // indirect
 	github.com/golang/protobuf v1.2.0
 	github.com/googleapis/gax-go v2.0.2+incompatible // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
 	github.com/gorilla/websocket v1.4.0 // indirect
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
-	github.com/grpc-ecosystem/grpc-gateway v1.5.1
+	github.com/grpc-ecosystem/grpc-gateway v1.6.2
 	github.com/imkira/go-interpol v1.1.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jackc/pgx v3.3.0+incompatible // indirect
+	github.com/jessevdk/go-flags v1.4.0 // indirect
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
+	github.com/kkdai/bstream v0.0.0-20181106074824-b3251f7901ec // indirect
 	github.com/klauspost/compress v1.4.1 // indirect
 	github.com/klauspost/cpuid v1.2.0 // indirect
 	github.com/kr/pty v1.1.3 // indirect
@@ -54,27 +60,26 @@ require (
 	github.com/mattn/go-colorable v0.0.9 // indirect
 	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0 // indirect
-	github.com/mitchellh/mapstructure v1.1.2 // indirect
 	github.com/moul/http2curl v1.0.0 // indirect
 	github.com/olivere/elastic v6.2.14+incompatible
 	github.com/onsi/ginkgo v1.7.0 // indirect
 	github.com/onsi/gomega v1.4.3 // indirect
 	github.com/openzipkin/zipkin-go v0.1.3 // indirect
-	github.com/prometheus/client_golang v0.9.1 // indirect
-	github.com/prometheus/common v0.0.0-20181126121408-4724e9255275 // indirect
-	github.com/prometheus/procfs v0.0.0-20181129180645-aa55a523dc0a // indirect
+	github.com/prometheus/client_golang v0.9.2 // indirect
+	github.com/prometheus/common v0.0.0-20181218105931-67670fe90761 // indirect
 	github.com/rs/xid v1.2.1
 	github.com/sergi/go-diff v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.2.0 // indirect
 	github.com/smartystreets/goconvey v0.0.0-20181108003508-044398e4856c // indirect
 	github.com/snowzach/certtools v1.0.2
+	github.com/spf13/afero v1.2.0 // indirect
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v0.0.3
-	github.com/spf13/pflag v1.0.3 // indirect
-	github.com/spf13/viper v1.2.1
+	github.com/spf13/viper v1.3.1
 	github.com/stevvooe/resumable v0.0.0-20180830230917-22b14a53ba50 // indirect
 	github.com/stretchr/testify v1.2.2
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20171017195756-830351dc03c6
+	github.com/ugorji/go/codec v0.0.0-20181209151446-772ced7fd4c2 // indirect
 	github.com/valyala/fasthttp v1.0.0 // indirect
 	github.com/vektra/mockery v0.0.0-20181123154057-e78b021dcbb5 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
@@ -88,16 +93,15 @@ require (
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.9.1
-	golang.org/x/lint v0.0.0-20181026193005-c67002cb31c3 // indirect
-	golang.org/x/net v0.0.0-20181201002055-351d144fa1fc
-	golang.org/x/oauth2 v0.0.0-20181128211412-28207608b838 // indirect
-	golang.org/x/sync v0.0.0-20181108010431-42b317875d0f // indirect
-	golang.org/x/sys v0.0.0-20181128092732-4ed8d59d0b35 // indirect
-	golang.org/x/tools v0.0.0-20181207195948-8634b1ecd393 // indirect
-	google.golang.org/api v0.0.0-20181129220737-af4fc4062c26 // indirect
+	golang.org/x/lint v0.0.0-20181217174547-8f45f776aaf1 // indirect
+	golang.org/x/net v0.0.0-20181217023233-e147a9138326
+	golang.org/x/oauth2 v0.0.0-20181203162652-d668ce993890 // indirect
+	golang.org/x/sys v0.0.0-20181218192612-074acd46bca6 // indirect
+	golang.org/x/tools v0.0.0-20181219185013-88e3b261f280 // indirect
+	google.golang.org/api v0.0.0-20181219005141-146117f78c63 // indirect
 	google.golang.org/appengine v1.3.0 // indirect
-	google.golang.org/genproto v0.0.0-20181127195345-31ac5d88444a
-	google.golang.org/grpc v1.16.0
-	gopkg.in/yaml.v2 v2.2.2 // indirect
+	google.golang.org/genproto v0.0.0-20181219182458-5a97ab628bfb
+	google.golang.org/grpc v1.17.0
+	gopkg.in/ini.v1 v1.39.3 // indirect
 	gotest.tools v2.2.0+incompatible // indirect
 )

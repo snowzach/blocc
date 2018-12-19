@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/btcsuite/btcd/blockchain"
@@ -22,13 +23,11 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 
 	// Build the blocc.Block
 	blk := &blocc.Block{
-		Type:        blocc.TypeBlock,
-		Symbol:      Symbol,
 		BlockId:     wBlk.BlockHash().String(),
 		PrevBlockId: wBlk.Header.PrevBlock.String(),
 		Height:      blocc.HeightUnknown,
 		Time:        wBlk.Header.Timestamp.UTC().Unix(),
-		Txids:       make([]string, len(wBlk.Transactions), len(wBlk.Transactions)),
+		TxIds:       make([]string, len(wBlk.Transactions), len(wBlk.Transactions)),
 		Data:        make(map[string]string),
 	}
 
@@ -50,6 +49,11 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 	blk.Data["merkle_root"] = wBlk.Header.MerkleRoot.String()
 	blk.Data["nonce"] = cast.ToString(wBlk.Header.Nonce)
 
+	// Build list of transaction ids
+	for x, wTx := range wBlk.Transactions {
+		blk.TxIds[x] = wTx.TxHash().String()
+	}
+
 	// if BlockChainStore is activated, determine the height if possible and store the block
 	if e.bcs != nil {
 		e.Lock()
@@ -59,8 +63,8 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 			e.Unlock()
 		} else {
 			e.Unlock()
-			// If we still don't know, wait for it but only if we
-			prevBlk := <-e.bcs.WaitForBlockId(blk.PrevBlockId, time.Now().Add(10*time.Minute))
+			// If we still don't know, wait for it
+			prevBlk := <-e.bm.WaitForBlockId(blk.PrevBlockId, time.Now().Add(10*time.Minute))
 			if prevBlk != nil && prevBlk.Height != blocc.HeightUnknown {
 				blk.Height = prevBlk.Height + 1
 			}
@@ -73,16 +77,20 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 				e.logger.Errorw("Could not BlockStore InsertBlockBTC", "error", err)
 			}
 		}
+
+		e.bm.AddBlock(blk, time.Now().Add(5*time.Minute))
 	}
 
-	// Handle the transactions
+	// Handle transactions in parallel
+	var wg sync.WaitGroup
 	for x, wTx := range wBlk.Transactions {
-		// Build list of transaction ids
-		blk.Txids[x] = wTx.TxHash().String()
-
-		// Handle a transaction
-		e.handleTx(blk, int32(x), wTx)
+		wg.Add(1)
+		go func() {
+			e.handleTx(blk, int32(x), wTx)
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 
 	e.logger.Infow("Handled Block", "block_id", blk.BlockId, "height", blk.Height)
 
@@ -92,8 +100,6 @@ func (e *Extractor) handleTx(blk *blocc.Block, height int32, wTx *wire.MsgTx) {
 
 	// Build the blocc.Tx
 	tx := &blocc.Tx{
-		Type:      blocc.TypeTx,
-		Symbol:    Symbol,
 		TxId:      wTx.TxHash().String(),
 		Addresses: make([]string, 0),
 		Data:      make(map[string]string),
@@ -120,8 +126,8 @@ func (e *Extractor) handleTx(blk *blocc.Block, height int32, wTx *wire.MsgTx) {
 
 	var value int64
 
-	// Append the destination addresses
-	for _, vout := range wTx.TxOut {
+	// Parse all of the outputs
+	for height, vout := range wTx.TxOut {
 		_, addresses, _, err := txscript.ExtractPkScriptAddrs(vout.PkScript, e.chainParams)
 		if err != nil {
 			e.logger.Warnw("Could not decode PkScript", "txId", tx.TxId, "error", err, "addresses", addresses, "script", hex.EncodeToString(vout.PkScript))
@@ -129,6 +135,21 @@ func (e *Extractor) handleTx(blk *blocc.Block, height int32, wTx *wire.MsgTx) {
 		}
 		tx.Addresses = append(tx.Addresses, parseBTCAddresses(addresses)...)
 		value += vout.Value
+
+		// If we're working with a block and a BlockChainStore parse and store the outputs if we know the height
+		if blk != nil && e.bcs != nil && height != blocc.HeightUnknown {
+			out := &blocc.Out{
+				TxId:   tx.TxId,
+				Height: int64(height),
+				Value:  vout.Value,
+				Raw:    vout.PkScript,
+			}
+			err := e.bcs.InsertOutput(Symbol, out)
+			if err != nil {
+				e.logger.Errorw("Could not BlockStore InsertOutput", "error", err)
+			}
+		}
+
 	}
 
 	tx.Data["value"] = cast.ToString(value)
@@ -137,6 +158,7 @@ func (e *Extractor) handleTx(blk *blocc.Block, height int32, wTx *wire.MsgTx) {
 	if blk != nil {
 		tx.Height = int64(height)
 		tx.BlockId = blk.BlockId
+		tx.BlockHeight = blk.Height
 		tx.Time = blk.Time
 		tx.BlockTime = blk.Time
 

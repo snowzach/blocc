@@ -3,7 +3,6 @@ package esearch
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/olivere/elastic"
 
@@ -11,10 +10,32 @@ import (
 	"git.coinninja.net/backend/blocc/store"
 )
 
+const (
+	IndexTypeBlock = "block"
+	IndexTypeTx    = "tx"
+	IndexTypeOut   = "out"
+)
+
 func (e *esearch) Init(symbol string) error {
 
+	err := e.EnsureIndex(IndexTypeBlock, symbol)
+	if err != nil {
+		return err
+	}
+	err = e.EnsureIndex(IndexTypeTx, symbol)
+	if err != nil {
+		return err
+	}
+	return nil
+
+}
+
+func (e *esearch) EnsureIndex(names ...string) error {
+
+	indexName := e.indexName(names...)
+
 	// Index
-	indexExists, err := e.client.IndexExists(e.index + "-" + symbol).Do(e.ctx)
+	indexExists, err := e.client.IndexExists(indexName).Do(e.ctx)
 	if err != nil {
 		return fmt.Errorf("Failed to check if index exists: %v", err)
 	}
@@ -23,7 +44,7 @@ func (e *esearch) Init(symbol string) error {
 	}
 
 	// Create the index
-	createIndex, err := e.client.CreateIndex(e.index + "-" + symbol).Do(e.ctx)
+	createIndex, err := e.client.CreateIndex(indexName).Do(e.ctx)
 	if err != nil {
 		return fmt.Errorf("Failed to create Elasticsearch index: %v", err)
 	}
@@ -32,27 +53,24 @@ func (e *esearch) Init(symbol string) error {
 	}
 
 	// Create an alias to the linked index
-	resp, err := e.client.Alias().Add(e.index+"-"+symbol, e.index).Do(e.ctx)
+	resp, err := e.client.Alias().Add(indexName, e.index).Do(e.ctx)
 	if err != nil {
-		return fmt.Errorf("Unable to link index: %s -> %s error: %v", e.index, e.index+"-"+symbol, err)
+		return fmt.Errorf("Unable to link index: %s -> %s error: %v", e.index, indexName, err)
 	}
 	if !resp.Acknowledged {
-		return fmt.Errorf("Failed to receive acknowledgement on index link: %s -> %s", e.index, e.index+"-"+symbol)
+		return fmt.Errorf("Failed to receive acknowledgement on index link: %s -> %s", e.index, indexName)
 	}
 	return nil
-
 }
 
 // Insert
 func (e *esearch) InsertBlock(symbol string, b *blocc.Block) error {
 
 	e.bulk.Add(elastic.NewBulkIndexRequest().
-		Index(e.indexName(symbol)).
+		Index(e.indexName(IndexTypeBlock, symbol)).
 		Type(e.index).
-		Id(b.BlockId).
+		// Id(b.BlockId).
 		Doc(b))
-
-	e.BlockMonitor.AddBlock(b, time.Now().Add(5*time.Minute))
 
 	return nil
 
@@ -62,13 +80,11 @@ func (e *esearch) InsertBlock(symbol string, b *blocc.Block) error {
 func (e *esearch) UpsertBlock(symbol string, b *blocc.Block) error {
 
 	e.bulk.Add(elastic.NewBulkUpdateRequest().
-		Index(e.indexName(symbol)).
+		Index(e.indexName(IndexTypeBlock, symbol)).
 		Type(e.index).
 		Id(b.BlockId).
 		Doc(b).
 		DocAsUpsert(true))
-
-	e.BlockMonitor.AddBlock(b, time.Now().Add(5*time.Minute))
 
 	return nil
 
@@ -77,7 +93,7 @@ func (e *esearch) UpsertBlock(symbol string, b *blocc.Block) error {
 func (e *esearch) InsertTransaction(symbol string, t *blocc.Tx) error {
 
 	e.bulk.Add(elastic.NewBulkIndexRequest().
-		Index(e.indexName(symbol)).
+		Index(e.indexName(IndexTypeTx, symbol)).
 		Type(e.index).
 		// Id(t.TxId).
 		Doc(t))
@@ -85,13 +101,39 @@ func (e *esearch) InsertTransaction(symbol string, t *blocc.Tx) error {
 
 }
 
-func (e *esearch) Flush(symbol string) error {
+func (e *esearch) InsertOutput(symbol string, o *blocc.Out) error {
+
+	e.bulk.Add(elastic.NewBulkIndexRequest().
+		Index(e.indexName(IndexTypeOut, symbol)).
+		Type(e.index).
+		// Id(t.TxId).
+		Doc(o))
+	return nil
+
+}
+
+func (e *esearch) FlushBlocks(symbol string) error {
 
 	err := e.bulk.Flush()
 	if err != nil {
 		return err
 	}
-	_, err = e.client.Flush(e.indexName(symbol)).Do(e.ctx)
+	_, err = e.client.Flush(e.indexName(IndexTypeBlock, symbol)).Do(e.ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func (e *esearch) FlushTransactions(symbol string) error {
+
+	err := e.bulk.Flush()
+	if err != nil {
+		return err
+	}
+	_, err = e.client.Flush(e.indexName(IndexTypeTx, symbol)).Do(e.ctx)
 	if err != nil {
 		return err
 	}
@@ -103,7 +145,7 @@ func (e *esearch) Flush(symbol string) error {
 func (e *esearch) GetBlockHeight(symbol string) (string, int64, error) {
 
 	res, err := e.client.Search().
-		Index(e.indexName(symbol)).
+		Index(e.indexName(IndexTypeBlock, symbol)).
 		Type(e.index).
 		Sort("height", false).
 		FetchSourceContext(elastic.NewFetchSourceContext(true).Include("height").Include("block_id")).
@@ -129,7 +171,7 @@ func (e *esearch) GetBlockHeight(symbol string) (string, int64, error) {
 func (e *esearch) GetBlockByHeight(symbol string, height int64) (*blocc.Block, error) {
 
 	res, err := e.client.Search().
-		Index(e.indexName(symbol)).
+		Index(e.indexName(IndexTypeBlock, symbol)).
 		Type(e.index).
 		Query(elastic.NewTermQuery("height", height)).
 		From(0).Size(1).Do(e.ctx)
@@ -151,7 +193,7 @@ func (e *esearch) GetBlockByHeight(symbol string, height int64) (*blocc.Block, e
 func (e *esearch) GetBlockByBlockId(symbol string, blockId string) (*blocc.Block, error) {
 
 	res, err := e.client.Search().
-		Index(e.indexName(symbol)).
+		Index(e.indexName(IndexTypeBlock, symbol)).
 		Type(e.index).
 		Query(elastic.NewTermQuery("block_id", blockId)).
 		From(0).Size(1).Do(e.ctx)
@@ -173,7 +215,7 @@ func (e *esearch) GetBlockByBlockId(symbol string, blockId string) (*blocc.Block
 func (e *esearch) GetBlockIdByHeight(symbol string, height int64) (string, error) {
 
 	res, err := e.client.Search().
-		Index(e.indexName(symbol)).
+		Index(e.indexName(IndexTypeBlock, symbol)).
 		Type(e.index).
 		Query(elastic.NewTermQuery("height", height)).
 		FetchSource(false).
@@ -193,7 +235,7 @@ func (e *esearch) GetBlockIdByHeight(symbol string, height int64) (string, error
 func (e *esearch) GetHeightByBlockId(symbol string, blockId string) (int64, error) {
 
 	res, err := e.client.Search().
-		Index(e.indexName(symbol)).
+		Index(e.indexName(IndexTypeBlock, symbol)).
 		Type(e.index).
 		Query(elastic.NewTermQuery("block_id", blockId)).
 		FetchSourceContext(elastic.NewFetchSourceContext(true).Include("height")).
@@ -215,8 +257,4 @@ func (e *esearch) GetHeightByBlockId(symbol string, blockId string) (int64, erro
 
 func (e *esearch) FindBlocks() ([]*blocc.Block, error) {
 	return nil, nil
-}
-
-func (e *esearch) indexName(symbol string) string {
-	return e.index + "-" + symbol
 }

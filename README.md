@@ -55,8 +55,8 @@ LOGGER_LEVEL=debug
 | server.rest.orig_names               | gRPC Gateway use original names                        | true            |
 | ---                                  | ---                                                    | ---             |
 | server.default_symbol                | Select which symbol coin if not specified              | btc             |
+| server.cache_duration                | How long should cached items be held                   | "7s"            |
 | ---                                  | ---                                                    | ---             |
-| elasticsearch.mapping_file           | Contains elastic mapping (blank=use embedded)          | ""              |
 | elasticsearch.request_log            | Log elasticsearch request/response timings             | false           |
 | elasticsearch.debug                  | Enabled debugging elastic request/responses            | false           |
 | elasticsearch.sniff                  | Enable monitoring elastic hosts                        | true            |
@@ -65,13 +65,23 @@ LOGGER_LEVEL=debug
 | elasticsearch.retries                | Connect retries                                        | 5               |
 | elasticsearch.sleep_between_retries  | Sleep between connect retries (seconds)                | "5s"            |
 | elasticsearch.index                  | Elasticsearch base index name                          | "blocc"         |
-| elasticsearch.index_replicas         | Default elastic index replicas                         | 0               |
-| elasticsearch.index_shards           | Default elastic index shards                           | 5               |
-| elasticsearch.refresh_interval       | How often to refresh indexes                           | "30s"           |
 | elasticsearch.bulk_workers           | Number of bulk workers to start                        | 2               |
 | elasticsearch.bulk_stats             | Periodically show bulk stats                           | false           |
 | elasticsearch.bulk_stats_interval    | How often to show bulk stats                           | "60s            |
 | elasticsearch.wipe_confirm           | Wipe elastic database/indexes                          | false           |
+| ---                                  | ---                                                    | ---             |
+| elasticsearch.block.template_file    | Mapping file for type. Blank=Use Embedded defaults     | ""              |
+| elasticsearch.block.index_replicas   | Type index replicas                                    | 0               |
+| elasticsearch.block.index_shards     | Type index shards                                      | 5               |
+| elasticsearch.block.refresh_interval | Type refresh interval                                  | "30s"           |
+| elasticsearch.tx.template_file       | Mapping file for type. Blank=Use Embedded defaults     | ""              |
+| elasticsearch.tx.index_replicas      | Type index replicas                                    | 0               |
+| elasticsearch.tx.index_shards        | Type index shards                                      | 25              |
+| elasticsearch.tx.refresh_interval    | Type refresh interval                                  | "30s"           |
+| elasticsearch.out.template_file      | Mapping file for type. Blank=Use Embedded defaults     | ""              |
+| elasticsearch.out.index_replicas     | Type index replicas                                    | 0               |
+| elasticsearch.out.index_shards       | Type index shards                                      | 20              |
+| elasticsearch.out.refresh_interval   | Type refresh interval                                  | "30s"           |
 | ---                                  | ---                                                    | ---             |
 | redis.host                           | Host for redis                                         | "redis"         |
 | redis.port                           | Port for redis                                         | "6379"          |
