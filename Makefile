@@ -4,8 +4,7 @@ GOPATH ?= ${HOME}/go
 PACKAGENAME := $(shell go list -m -f '{{.Path}}')
 EMBEDDIR := embed
 EMBED := embed/template-block.json \
-	embed/template-tx.json \
-	embed/template-out.json
+	embed/template-tx.json
 TOOLS := ${GOPATH}/bin/go-bindata \
 	${GOPATH}/bin/mockery \
 	${GOPATH}/src/github.com/gogo/protobuf/proto \

@@ -15,7 +15,6 @@ type BlockChainStore interface {
 	InsertBlock(symbol string, blk *Block) error
 	UpsertBlock(symbol string, blk *Block) error
 	InsertTransaction(symbol string, blk *Tx) error
-	InsertOutput(symbol string, out *Out) error
 
 	FlushBlocks(symbol string) error
 	FlushTransactions(symbol string) error

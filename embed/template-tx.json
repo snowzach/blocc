@@ -44,6 +44,14 @@
                 "block_time": {
                     "type": "long"
                 },
+                "out": {
+                    "type": "object",
+                    "properties": {
+                        "value": {
+                            "type": "long"
+                        }
+                    }
+                },
                 "raw": {
                     "type": "binary"
                 },
@@ -54,4 +62,3 @@
         }
     }
 }
-

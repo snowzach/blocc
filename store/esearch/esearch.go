@@ -120,7 +120,7 @@ func New() (*esearch, error) {
 	}
 
 	// Setup the templates
-	for _, t := range []string{IndexTypeBlock, IndexTypeTx, IndexTypeOut} {
+	for _, t := range []string{IndexTypeBlock, IndexTypeTx} {
 		err = e.ApplyIndexTemplate(t)
 		if err != nil {
 			return nil, fmt.Errorf("Could not ApplyIndexTemplate %s: %v", t, err)

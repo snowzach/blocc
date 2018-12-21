@@ -174,21 +174,9 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 
 	e.logger.Infow("Connected to peer", "peer", e.peer.Addr(), "height", e.peer.StartingHeight(), "last_block", e.peer.LastBlock())
 
-	// Did we provide a blockchain store?
+	// Did we provide a blockchain store? If so, go fetch the block chain
 	if e.bcs != nil {
-		// Figure out the top block in the store
-		e.validBlockId, e.validBlockHeight, err = e.bcs.GetBlockHeight(Symbol)
-		if err != nil && err != store.ErrNotFound {
-			e.logger.Errorw("GetBlockHeight", "error", err)
-		} else {
-			if err == store.ErrNotFound {
-				// Set to the start block if we don't have any
-				e.validBlockId = config.GetString("extractor.btc.start_block_id")
-				e.validBlockHeight = config.GetInt64("extractor.btc.start_block_height")
-			}
-			e.logger.Infow("Starting block extraction", "start_block_id", e.validBlockId, "start_block_height", e.validBlockHeight)
-			go e.fetchBlockChain()
-		}
+		go e.fetchBlockChain()
 	}
 
 	// Get the mempool from the peer
@@ -202,6 +190,21 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 
 // fetchBlockChain will start fetching blocks until it has the entire block chain
 func (e *Extractor) fetchBlockChain() {
+
+	var err error
+
+	// Figure out the top block in the store
+	e.validBlockId, e.validBlockHeight, err = e.bcs.GetBlockHeight(Symbol)
+	if err != nil && err != store.ErrNotFound {
+		e.logger.Fatalw("GetBlockHeight", "error", err)
+	} else {
+		if err == store.ErrNotFound || e.validBlockHeight < config.GetInt64("extractor.btc.start_block_height") {
+			// Set to the start block if we don't have any or for some reason we were requested to start higher
+			e.validBlockId = config.GetString("extractor.btc.start_block_id")
+			e.validBlockHeight = config.GetInt64("extractor.btc.start_block_height")
+		}
+	}
+	e.logger.Infow("Starting block extraction", "start_block_id", e.validBlockId, "start_block_height", e.validBlockHeight)
 
 	for {
 		start := time.Now()
@@ -225,6 +228,13 @@ func (e *Extractor) fetchBlockChain() {
 		blk := <-e.bm.WaitForBlockHeight(height, time.Now().Add(120*time.Minute))
 		if blk == nil {
 			e.logger.Errorw("Did not get block when following blockchain", "height", height)
+			// Figure out what block we do have
+			e.validBlockId, e.validBlockHeight, err = e.bcs.GetBlockHeight(Symbol)
+			if err != nil {
+				e.logger.Fatalw("GetBlockHeight", "error", err)
+			}
+			e.logger.Infow("Continuing block extraction after timeout", "block_id", e.validBlockId, "block_height", e.validBlockHeight)
+			continue
 		} else {
 			e.logger.Infow("Block Chain Stats",
 				"rate(/h)", 500.0/(time.Now().Sub(start).Hours()),
@@ -276,7 +286,7 @@ func (e *Extractor) RequestMemPool() {
 func (e *Extractor) OnTx(p *peer.Peer, msg *wire.MsgTx) {
 	e.throttleTxns <- struct{}{}
 	go func() {
-		e.handleTx(nil, 0, msg)
+		e.handleTx(nil, blocc.HeightUnknown, msg)
 		<-e.throttleTxns
 	}()
 }

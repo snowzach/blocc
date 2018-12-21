@@ -13,7 +13,6 @@ import (
 const (
 	IndexTypeBlock = "block"
 	IndexTypeTx    = "tx"
-	IndexTypeOut   = "out"
 )
 
 func (e *esearch) Init(symbol string) error {
@@ -97,17 +96,6 @@ func (e *esearch) InsertTransaction(symbol string, t *blocc.Tx) error {
 		Type(e.index).
 		// Id(t.TxId).
 		Doc(t))
-	return nil
-
-}
-
-func (e *esearch) InsertOutput(symbol string, o *blocc.Out) error {
-
-	e.bulk.Add(elastic.NewBulkIndexRequest().
-		Index(e.indexName(IndexTypeOut, symbol)).
-		Type(e.index).
-		// Id(t.TxId).
-		Doc(o))
 	return nil
 
 }

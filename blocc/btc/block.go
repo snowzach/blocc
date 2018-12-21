@@ -85,10 +85,10 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 	var wg sync.WaitGroup
 	for x, wTx := range wBlk.Transactions {
 		wg.Add(1)
-		go func() {
-			e.handleTx(blk, int32(x), wTx)
+		go func(txHeight int64, t *wire.MsgTx) {
+			e.handleTx(blk, txHeight, t)
 			wg.Done()
-		}()
+		}(int64(x), wTx)
 	}
 	wg.Wait()
 
@@ -96,13 +96,14 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
 
 }
 
-func (e *Extractor) handleTx(blk *blocc.Block, height int32, wTx *wire.MsgTx) {
+func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx) {
 
 	// Build the blocc.Tx
 	tx := &blocc.Tx{
-		TxId:      wTx.TxHash().String(),
-		Addresses: make([]string, 0),
-		Data:      make(map[string]string),
+		TxId:   wTx.TxHash().String(),
+		Height: txHeight,
+		Data:   make(map[string]string),
+		Out:    make([]*blocc.Out, len(wTx.TxOut)),
 	}
 
 	// Write the raw transaction
@@ -124,39 +125,28 @@ func (e *Extractor) handleTx(blk *blocc.Block, height int32, wTx *wire.MsgTx) {
 
 	// TODO: Fetch the source addesses from the blockstore
 
-	var value int64
+	var txValue int64
 
 	// Parse all of the outputs
 	for height, vout := range wTx.TxOut {
-		_, addresses, _, err := txscript.ExtractPkScriptAddrs(vout.PkScript, e.chainParams)
+		scriptType, addresses, _, err := txscript.ExtractPkScriptAddrs(vout.PkScript, e.chainParams)
 		if err != nil {
 			e.logger.Warnw("Could not decode PkScript", "txId", tx.TxId, "error", err, "addresses", addresses, "script", hex.EncodeToString(vout.PkScript))
 			continue
 		}
-		tx.Addresses = append(tx.Addresses, parseBTCAddresses(addresses)...)
-		value += vout.Value
 
-		// If we're working with a block and a BlockChainStore parse and store the outputs if we know the height
-		if blk != nil && e.bcs != nil && height != blocc.HeightUnknown {
-			out := &blocc.Out{
-				TxId:   tx.TxId,
-				Height: int64(height),
-				Value:  vout.Value,
-				Raw:    vout.PkScript,
-			}
-			err := e.bcs.InsertOutput(Symbol, out)
-			if err != nil {
-				e.logger.Errorw("Could not BlockStore InsertOutput", "error", err)
-			}
+		tx.Out[height] = &blocc.Out{
+			Type:      scriptType.String(),
+			Addresses: parseBTCAddresses(addresses),
+			Value:     vout.Value,
 		}
-
+		txValue += vout.Value
 	}
 
-	tx.Data["value"] = cast.ToString(value)
+	tx.Data["value"] = cast.ToString(txValue)
 
 	// If this transaction came as part of a block, add block metadata
 	if blk != nil {
-		tx.Height = int64(height)
 		tx.BlockId = blk.BlockId
 		tx.BlockHeight = blk.Height
 		tx.Time = blk.Time

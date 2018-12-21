@@ -24,19 +24,16 @@ message Tx {
     string tx_id = 4;
     int64 height = 5 [(gogoproto.jsontag) = "height"]; // Remove omitempty
     int64 time = 6;
-    repeated string addresses = 7;
-    bytes raw = 8 [(gogoproto.casttype) = "Raw"];
+    repeated Out out = 8;
+    bytes raw = 9 [(gogoproto.casttype) = "Raw"];
 
     map<string, string> data = 15;
 }
 
 message Out {
-    string tx_id = 1;
-    int64 height = 2 [(gogoproto.jsontag) = "height"]; // Remove omitempty
+    string type = 1;
+    repeated string addresses = 2 [(gogoproto.jsontag) = "address"]; // Remove omitempty;
     int64 value = 3;
-    bytes raw = 4 [(gogoproto.casttype) = "Raw"];
-
-    map<string, string> data = 15;
 }
 
 message Metric {
