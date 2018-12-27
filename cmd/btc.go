@@ -54,6 +54,17 @@ var (
 				bcs = es
 				// Elastic will implement MetricStore
 				ms = es
+
+				// Make it wait to flush before the program exists
+				go func() {
+					conf.Stop.Add(1)
+					<-conf.Stop.Chan()
+					logger.Info("Flushing Elasticsearch Bulk Operations")
+					es.FlushBlocks(btc.Symbol)
+					es.FlushTransactions(btc.Symbol)
+					conf.Stop.Done()
+				}()
+
 			}
 
 			// Redis will implement the TxPool/TxBus

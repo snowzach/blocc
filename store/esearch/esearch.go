@@ -17,6 +17,10 @@ import (
 	"git.coinninja.net/backend/blocc/embed"
 )
 
+const (
+	DocType = "blocc"
+)
+
 type esearch struct {
 	logger *zap.SugaredLogger
 

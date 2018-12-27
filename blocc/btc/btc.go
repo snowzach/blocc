@@ -184,6 +184,12 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 		e.RequestMemPool()
 	}
 
+	// Close the peer if stop signal comes in
+	go func() {
+		<-conf.Stop.Chan()
+		e.peer.Disconnect()
+	}()
+
 	return e, nil
 
 }
@@ -204,9 +210,18 @@ func (e *Extractor) fetchBlockChain() {
 			e.validBlockHeight = config.GetInt64("extractor.btc.start_block_height")
 		}
 	}
+
+	// If we're starting at the genesis block, insert it
+	if e.validBlockHeight == -1 {
+		e.handleBlock(e.chainParams.GenesisBlock)
+		// The genesis block is now the valid block
+		e.validBlockHeight = 0
+		e.validBlockId = e.chainParams.GenesisBlock.BlockHash().String()
+	}
+
 	e.logger.Infow("Starting block extraction", "start_block_id", e.validBlockId, "start_block_height", e.validBlockHeight)
 
-	for {
+	for !conf.Stop.Bool() {
 		start := time.Now()
 
 		e.Lock()
@@ -224,30 +239,35 @@ func (e *Extractor) fetchBlockChain() {
 			return
 		}
 
-		// Otherwise, wait for the blocks for 2 hours
-		blk := <-e.bm.WaitForBlockHeight(height, time.Now().Add(120*time.Minute))
-		if blk == nil {
-			e.logger.Errorw("Did not get block when following blockchain", "height", height)
-			// Figure out what block we do have
-			e.validBlockId, e.validBlockHeight, err = e.bcs.GetBlockHeight(Symbol)
-			if err != nil {
-				e.logger.Fatalw("GetBlockHeight", "error", err)
+		select {
+		// Otherwise, wait for the blocks for 2 hours (or exit)
+		case blk := <-e.bm.WaitForBlockHeight(height, time.Now().Add(120*time.Minute)):
+			if blk == nil {
+				e.logger.Errorw("Did not get block when following blockchain", "height", height)
+				// Figure out what block we do have
+				e.validBlockId, e.validBlockHeight, err = e.bcs.GetBlockHeight(Symbol)
+				if err != nil {
+					e.logger.Fatalw("GetBlockHeight", "error", err)
+				}
+				e.logger.Infow("Continuing block extraction after timeout", "block_id", e.validBlockId, "block_height", e.validBlockHeight)
+				continue
+			} else {
+				e.logger.Infow("Block Chain Stats",
+					"rate(/h)", 500.0/(time.Now().Sub(start).Hours()),
+					"rate(/m)", 500.0/time.Now().Sub(start).Minutes(),
+					"rate(/s)", 500.0/time.Now().Sub(start).Seconds(),
+					"eta", (time.Duration(float64(int64(e.peer.LastBlock())-height)/(500.0/time.Now().Sub(start).Seconds())) * time.Second).String(),
+				)
 			}
-			e.logger.Infow("Continuing block extraction after timeout", "block_id", e.validBlockId, "block_height", e.validBlockHeight)
-			continue
-		} else {
-			e.logger.Infow("Block Chain Stats",
-				"rate(/h)", 500.0/(time.Now().Sub(start).Hours()),
-				"rate(/m)", 500.0/time.Now().Sub(start).Minutes(),
-				"rate(/s)", 500.0/time.Now().Sub(start).Seconds(),
-				"eta", (time.Duration(float64(int64(e.peer.LastBlock())-height)/(500.0/time.Now().Sub(start).Seconds())) * time.Second).String(),
-			)
-		}
 
-		e.Lock()
-		e.validBlockId = blk.BlockId
-		e.validBlockHeight = blk.Height
-		e.Unlock()
+			e.Lock()
+			e.validBlockId = blk.BlockId
+			e.validBlockHeight = blk.Height
+			e.Unlock()
+
+		// We're exiting
+		case <-conf.Stop.Chan():
+		}
 
 	}
 
@@ -296,7 +316,7 @@ func (e *Extractor) OnBlock(p *peer.Peer, msg *wire.MsgBlock, buf []byte) {
 
 	e.throttleBlocks <- struct{}{}
 	go func() {
-		e.handleBlock(msg, len(buf))
+		e.handleBlock(msg)
 		<-e.throttleBlocks
 	}()
 }

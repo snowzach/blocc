@@ -75,10 +75,6 @@ func init() {
 	config.SetDefault("elasticsearch.tx.index_shards", 25)
 	config.SetDefault("elasticsearch.tx.index_replicas", 0)
 	config.SetDefault("elasticsearch.tx.refresh_interval", "30s")
-	config.SetDefault("elasticsearch.out.template_file", "") // Defaults to loading embedded template-tx.json if not specified
-	config.SetDefault("elasticsearch.out.index_shards", 20)
-	config.SetDefault("elasticsearch.out.index_replicas", 0)
-	config.SetDefault("elasticsearch.out.refresh_interval", "30s")
 
 	// Redis Settings
 	config.SetDefault("redis.host", "redis")
@@ -94,8 +90,8 @@ func init() {
 	config.SetDefault("extractor.btc.debug_messages", false)
 	config.SetDefault("extractor.btc.blocks", false)
 	config.SetDefault("extractor.btc.transactions", false)
-	config.SetDefault("extractor.btc.start_block_id", "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
-	config.SetDefault("extractor.btc.start_block_height", 0)
+	config.SetDefault("extractor.btc.start_block_id", "0000000000000000000000000000000000000000000000000000000000000000")
+	config.SetDefault("extractor.btc.start_block_height", -1)
 	config.SetDefault("extractor.btc.throttle_blocks", 500)
 	config.SetDefault("extractor.btc.throttle_transactions", 700)
 	config.SetDefault("extractor.btc.transaction_lifetime", "336h") // 14 days

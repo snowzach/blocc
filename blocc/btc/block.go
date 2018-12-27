@@ -17,7 +17,7 @@ import (
 	"git.coinninja.net/backend/blocc/blocc"
 )
 
-func (e *Extractor) handleBlock(wBlk *wire.MsgBlock, size int) {
+func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 
 	e.logger.Infow("Handling Block", "block_id", wBlk.BlockHash().String())
 

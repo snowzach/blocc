@@ -34,6 +34,7 @@ message Out {
     string type = 1;
     repeated string addresses = 2 [(gogoproto.jsontag) = "address"]; // Remove omitempty;
     int64 value = 3;
+    string script = 4;
 }
 
 message Metric {
