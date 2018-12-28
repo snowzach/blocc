@@ -19,6 +19,10 @@ import (
 
 func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 
+	// Ensure we complete handling a block before exiting
+	e.Add(1)
+	defer e.Done()
+
 	e.logger.Infow("Handling Block", "block_id", wBlk.BlockHash().String())
 
 	// Build the blocc.Block
@@ -64,9 +68,12 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 		} else {
 			e.Unlock()
 			// If we still don't know, wait for it
-			prevBlk := <-e.bm.WaitForBlockId(blk.PrevBlockId, time.Now().Add(10*time.Minute))
-			if prevBlk != nil && prevBlk.Height != blocc.HeightUnknown {
-				blk.Height = prevBlk.Height + 1
+			select {
+			case prevBlk := <-e.bm.WaitForBlockId(blk.PrevBlockId, time.Now().Add(e.blockMonitorTimeout)):
+				if prevBlk != nil && prevBlk.Height != blocc.HeightUnknown {
+					blk.Height = prevBlk.Height + 1
+					e.bm.ExpireBelowBlockHeight(prevBlk.Height) // We no longer need blocks before this one in the monitor
+				}
 			}
 		}
 
@@ -78,7 +85,7 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 			}
 		}
 
-		e.bm.AddBlock(blk, time.Now().Add(5*time.Minute))
+		e.bm.AddBlock(blk, time.Now().Add(e.blockMonitorLifetime))
 	}
 
 	// Handle transactions in parallel

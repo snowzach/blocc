@@ -36,12 +36,12 @@ func NewBlockMonitorMem() *BlockMonitorMem {
 			if !bhm.nextExpires.IsZero() && now.Sub(bhm.nextExpires) > 0 {
 				bhm.nextExpires = time.Time{} // Zero Value - and then find the new one
 
-				// Scan the blocks for the expiring one
-				for key, b := range bhm.byId {
+				// Scan the blocks for the expiring by height
+				for h, b := range bhm.byHeight {
 					b.Lock()
 					// Remove any expired blocks
 					if now.Sub(b.expires) > 0 {
-						delete(bhm.byId, key)
+						delete(bhm.byHeight, h)
 						for _, c := range b.waiters {
 							close(c)
 						}
@@ -54,12 +54,12 @@ func NewBlockMonitorMem() *BlockMonitorMem {
 					b.Unlock()
 				}
 
-				// Scan the blocks for the expiring one
-				for key, b := range bhm.byHeight {
+				// Scan the blocks for the expiring by Id (in case we never got block)
+				for id, b := range bhm.byId {
 					b.Lock()
 					// Remove any expired blocks
 					if now.Sub(b.expires) > 0 {
-						delete(bhm.byHeight, key)
+						delete(bhm.byId, id)
 						for _, c := range b.waiters {
 							close(c)
 						}
@@ -85,16 +85,27 @@ func NewBlockMonitorMem() *BlockMonitorMem {
 // blockChan will create a channel and immediately return a value and close
 func blockChan(b *Block) <-chan *Block {
 	c := make(chan *Block)
-	go func() {
-		c <- b
+	if b != nil {
+		go func() {
+			c <- b
+			close(c)
+		}()
+	} else {
 		close(c)
-	}()
+	}
 	return c
 }
 
 // Wait for the block id
 func (bhm *BlockMonitorMem) WaitForBlockId(blockId string, expires time.Time) <-chan *Block {
 	bhm.Lock()
+
+	// If shutdown
+	if bhm.byId == nil {
+		bhm.Unlock()
+		return blockChan(nil)
+	}
+
 	// Do we have this block or have other waiters
 	if b, ok := bhm.byId[blockId]; ok {
 		b.Lock()
@@ -132,6 +143,13 @@ func (bhm *BlockMonitorMem) WaitForBlockId(blockId string, expires time.Time) <-
 // Wait for the block height
 func (bhm *BlockMonitorMem) WaitForBlockHeight(height int64, expires time.Time) <-chan *Block {
 	bhm.Lock()
+
+	// If shutdown
+	if bhm.byId == nil {
+		bhm.Unlock()
+		return blockChan(nil)
+	}
+
 	// Do we have this block or have other waiters
 	if b, ok := bhm.byHeight[height]; ok {
 		b.Lock()
@@ -169,6 +187,11 @@ func (bhm *BlockMonitorMem) WaitForBlockHeight(height int64, expires time.Time) 
 func (bhm *BlockMonitorMem) AddBlock(block *Block, expires time.Time) {
 	bhm.Lock()
 	defer bhm.Unlock()
+
+	// We're shutdown
+	if bhm.byId == nil {
+		return
+	}
 
 	// Do we have this block or have other waiters
 	if b, ok := bhm.byId[block.BlockId]; ok {
@@ -222,4 +245,43 @@ func (bhm *BlockMonitorMem) AddBlock(block *Block, expires time.Time) {
 		}
 	}
 
+}
+
+func (bhm *BlockMonitorMem) ExpireBelowBlockHeight(height int64) {
+	bhm.Lock()
+	defer bhm.Unlock()
+	for h, b := range bhm.byHeight {
+		if h <= height {
+			b.Lock()
+			delete(bhm.byHeight, h)
+			delete(bhm.byId, b.block.BlockId)
+			for _, c := range b.waiters {
+				close(c)
+			}
+			b.Unlock()
+		}
+	}
+}
+
+func (bhm *BlockMonitorMem) Shutdown() {
+	bhm.Lock()
+	defer bhm.Unlock()
+	for h, b := range bhm.byHeight {
+		b.Lock()
+		delete(bhm.byHeight, h)
+		for _, c := range b.waiters {
+			close(c)
+		}
+		b.Unlock()
+	}
+	for id, b := range bhm.byId {
+		b.Lock()
+		delete(bhm.byId, id)
+		for _, c := range b.waiters {
+			close(c)
+		}
+		b.Unlock()
+	}
+	bhm.byHeight = nil
+	bhm.byId = nil
 }

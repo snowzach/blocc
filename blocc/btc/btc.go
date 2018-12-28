@@ -32,9 +32,6 @@ type Extractor struct {
 	ms          blocc.MetricStore
 	bm          blocc.BlockMonitor
 
-	extractBlocks bool
-	extractTxns   bool
-
 	throttleBlocks chan struct{}
 	throttleTxns   chan struct{}
 
@@ -44,6 +41,9 @@ type Extractor struct {
 	// This is used to determine how much complete data we have in our database
 	validBlockId     string
 	validBlockHeight int64
+
+	blockMonitorTimeout  time.Duration
+	blockMonitorLifetime time.Duration
 
 	txLifetime time.Duration
 
@@ -68,6 +68,9 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 
 		storeRawBlocks:       config.GetBool("extractor.btc.store_raw_blocks"),
 		storeRawTransactions: config.GetBool("extractor.btc.store_raw_transactions"),
+
+		blockMonitorTimeout:  config.GetDuration("extractor.btc.block_monitor_timeout"),
+		blockMonitorLifetime: config.GetDuration("extractor.btc.block_monitor_lifetime"),
 
 		txLifetime: config.GetDuration("extractor.btc.transaction_lifetime"),
 	}
@@ -184,10 +187,19 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 		e.RequestMemPool()
 	}
 
-	// Close the peer if stop signal comes in
+	// Close the peer if stop signal comes in and clean everything up
 	go func() {
+		conf.Stop.Add(1) // Hold shutdown until everything flushed
 		<-conf.Stop.Chan()
 		e.peer.Disconnect()
+		e.bm.Shutdown() // Shutdown the monitor
+		e.Wait()        // Wait until all blocks are handled
+		if e.bcs != nil {
+			e.logger.Info("Flushing BlockChainStore")
+			e.bcs.FlushBlocks(Symbol)
+			e.bcs.FlushTransactions(Symbol)
+		}
+		conf.Stop.Done()
 	}()
 
 	return e, nil
@@ -224,13 +236,10 @@ func (e *Extractor) fetchBlockChain() {
 	for !conf.Stop.Bool() {
 		start := time.Now()
 
-		e.Lock()
-
-		// This will fetch blocks, the first block will be the one after this one and will return 500 blocks
+		// This will fetch blocks, the first block will be the one after this one and will return extractor.btc.blocks_request_count (500) blocks
 		e.RequestBlocks(e.validBlockId, "0")
-		// We will fetch 500 blocks (after this block) so the last block we will get is this block + 500
-		height := e.validBlockHeight + 500
-
+		e.Lock()
+		height := e.validBlockHeight + config.GetInt64("extractor.btc.blocks_request_count") // The last expected block (current + extractor.btc.blocks_request_count(500))
 		e.Unlock()
 
 		// IF the last block we've received is within this window, we're done here
@@ -241,7 +250,7 @@ func (e *Extractor) fetchBlockChain() {
 
 		select {
 		// Otherwise, wait for the blocks for 2 hours (or exit)
-		case blk := <-e.bm.WaitForBlockHeight(height, time.Now().Add(120*time.Minute)):
+		case blk := <-e.bm.WaitForBlockHeight(height, time.Now().Add(config.GetDuration("extractor.btc.blocks_request_timeout"))):
 			if blk == nil {
 				e.logger.Errorw("Did not get block when following blockchain", "height", height)
 				// Figure out what block we do have
@@ -249,7 +258,7 @@ func (e *Extractor) fetchBlockChain() {
 				if err != nil {
 					e.logger.Fatalw("GetBlockHeight", "error", err)
 				}
-				e.logger.Infow("Continuing block extraction after timeout", "block_id", e.validBlockId, "block_height", e.validBlockHeight)
+				e.logger.Warnw("Continuing block extraction after timeout", "block_id", e.validBlockId, "block_height", e.validBlockHeight)
 				continue
 			} else {
 				e.logger.Infow("Block Chain Stats",

@@ -106,7 +106,7 @@ func New() (*esearch, error) {
 	// Remove indexes if we are set to wipe...
 	if config.GetBool("elasticsearch.wipe_confirm") {
 		e.logger.Warnw("We are about to wipe existing indexes. You have 4 seconds to press Ctrl-C",
-			"index", e.index+"*",
+			"index", e.index+"-*",
 		)
 		time.Sleep(4 * time.Second)
 
