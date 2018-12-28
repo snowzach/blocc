@@ -55,6 +55,11 @@ type Extractor struct {
 
 func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms blocc.MetricStore) (*Extractor, error) {
 
+	// Do any sanity checks
+	if 2*config.GetInt64("extractor.btc.blocks_request_count") > config.GetInt64("extractor.btc.throttle_transactions") {
+		return nil, fmt.Errorf("extractor.btc.throttle_blocks should be at least 2 times extractor.btc.blocks_request_count")
+	}
+
 	e := &Extractor{
 		logger: zap.S().With("package", "blocc.btc"),
 		bcs:    bcs,
