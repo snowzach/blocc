@@ -251,7 +251,7 @@ func (bhm *BlockMonitorMem) ExpireBelowBlockHeight(height int64) {
 	bhm.Lock()
 	defer bhm.Unlock()
 	for h, b := range bhm.byHeight {
-		if h <= height {
+		if h < height {
 			b.Lock()
 			delete(bhm.byHeight, h)
 			delete(bhm.byId, b.block.BlockId)

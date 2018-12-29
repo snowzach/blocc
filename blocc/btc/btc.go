@@ -20,7 +20,10 @@ import (
 	"git.coinninja.net/backend/blocc/store"
 )
 
-const Symbol = "btc"
+const (
+	Symbol            = "btc"
+	ScriptTypeUnknown = "unknown"
+)
 
 type Extractor struct {
 	logger      *zap.SugaredLogger
@@ -241,9 +244,13 @@ func (e *Extractor) fetchBlockChain() {
 	for !conf.Stop.Bool() {
 		start := time.Now()
 
+		// Expire other blocks below this block, we no longer need them
+		e.bm.ExpireBelowBlockHeight(e.validBlockHeight)
+
 		// This will fetch blocks, the first block will be the one after this one and will return extractor.btc.blocks_request_count (500) blocks
-		e.RequestBlocks(e.validBlockId, "0")
 		e.Lock()
+		e.logger.Warnf("BLOCK %s - %d", e.validBlockId, e.validBlockHeight)
+		e.RequestBlocks(e.validBlockId, "0")
 		height := e.validBlockHeight + config.GetInt64("extractor.btc.blocks_request_count") // The last expected block (current + extractor.btc.blocks_request_count(500))
 		e.Unlock()
 
@@ -254,31 +261,21 @@ func (e *Extractor) fetchBlockChain() {
 		}
 
 		select {
-		// Otherwise, wait for the blocks for 2 hours (or exit)
+		// Otherwise, wait for the blocks
 		case blk := <-e.bm.WaitForBlockHeight(height, time.Now().Add(config.GetDuration("extractor.btc.blocks_request_timeout"))):
 			if blk == nil {
 				e.logger.Errorw("Did not get block when following blockchain", "height", height)
-				// Figure out what block we do have
-				e.validBlockId, e.validBlockHeight, err = e.bcs.GetBlockHeight(Symbol)
-				if err != nil {
-					e.logger.Fatalw("GetBlockHeight", "error", err)
-				}
 				e.logger.Warnw("Continuing block extraction after timeout", "block_id", e.validBlockId, "block_height", e.validBlockHeight)
 				continue
 			} else {
 				e.logger.Infow("Block Chain Stats",
+					"height", blk.Height,
 					"rate(/h)", 500.0/(time.Now().Sub(start).Hours()),
 					"rate(/m)", 500.0/time.Now().Sub(start).Minutes(),
 					"rate(/s)", 500.0/time.Now().Sub(start).Seconds(),
 					"eta", (time.Duration(float64(int64(e.peer.LastBlock())-height)/(500.0/time.Now().Sub(start).Seconds())) * time.Second).String(),
 				)
 			}
-
-			e.Lock()
-			e.validBlockId = blk.BlockId
-			e.validBlockHeight = blk.Height
-			e.Unlock()
-
 		// We're exiting
 		case <-conf.Stop.Chan():
 		}

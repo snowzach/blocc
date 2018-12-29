@@ -64,6 +64,8 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 		// If we know of this previous block, record the height
 		if blk.PrevBlockId == e.validBlockId {
 			blk.Height = e.validBlockHeight + 1
+			e.validBlockId = blk.BlockId
+			e.validBlockHeight = blk.Height
 			e.Unlock()
 		} else {
 			e.Unlock()
@@ -71,8 +73,14 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 			select {
 			case prevBlk := <-e.bm.WaitForBlockId(blk.PrevBlockId, time.Now().Add(e.blockMonitorTimeout)):
 				if prevBlk != nil && prevBlk.Height != blocc.HeightUnknown {
+					// Set the height
 					blk.Height = prevBlk.Height + 1
-					e.bm.ExpireBelowBlockHeight(prevBlk.Height) // We no longer need blocks before this one in the monitor
+
+					// Register this as the highet block
+					e.Lock()
+					e.validBlockId = blk.BlockId
+					e.validBlockHeight = blk.Height
+					e.Unlock()
 				}
 			}
 		}
@@ -137,11 +145,18 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx) 
 	// Parse all of the outputs
 	for height, vout := range wTx.TxOut {
 		scriptType, addresses, _, err := txscript.ExtractPkScriptAddrs(vout.PkScript, e.chainParams)
+		// Could not decode
 		if err != nil {
-			e.logger.Warnw("Could not decode PkScript", "txId", tx.TxId, "error", err, "addresses", addresses, "script", hex.EncodeToString(vout.PkScript))
+			// Encode the raw bytes instead
+			tx.Out[height] = &blocc.Out{
+				Type:  txscript.NonStandardTy.String(),
+				Raw:   vout.PkScript,
+				Value: vout.Value,
+			}
+			txValue += vout.Value
+			//e.logger.Warnw("Could not decode PkScript", "txId", tx.TxId, "error", err, "addresses", addresses, "script", hex.EncodeToString(vout.PkScript))
 			continue
 		}
-
 		tx.Out[height] = &blocc.Out{
 			Type:      scriptType.String(),
 			Addresses: parseBTCAddresses(addresses),
