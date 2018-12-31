@@ -247,18 +247,17 @@ func (e *Extractor) fetchBlockChain() {
 		// Expire other blocks below this block, we no longer need them
 		e.bm.ExpireBelowBlockHeight(e.validBlockHeight)
 
+		// If the last block we've received is the valid block height, we're done
+		if int64(e.peer.LastBlock()) == e.validBlockHeight {
+			return
+		}
+
 		// This will fetch blocks, the first block will be the one after this one and will return extractor.btc.blocks_request_count (500) blocks
 		e.Lock()
 		e.logger.Warnf("BLOCK %s - %d", e.validBlockId, e.validBlockHeight)
 		e.RequestBlocks(e.validBlockId, "0")
 		height := e.validBlockHeight + config.GetInt64("extractor.btc.blocks_request_count") // The last expected block (current + extractor.btc.blocks_request_count(500))
 		e.Unlock()
-
-		// IF the last block we've received is within this window, we're done here
-		// TODO: Validate this
-		if int64(e.peer.LastBlock()) < height {
-			return
-		}
 
 		select {
 		// Otherwise, wait for the blocks
