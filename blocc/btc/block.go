@@ -110,6 +110,11 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 
 	e.logger.Infow("Handled Block", "block_id", blk.BlockId, "height", blk.Height)
 
+	// Everything is handled, add it to the block monitor
+	if e.bcs != nil {
+		e.bm.AddBlock(blk, time.Now().Add(e.blockMonitorLifetime))
+	}
+
 }
 
 func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx) {
@@ -152,7 +157,7 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx) 
 		}
 
 		// if we're part of a block and not a coinbase, resolve the previous
-		if blk != nil && txIn.TxId != "0000000000000000000000000000000000000000000000000000000000000000" {
+		if blk != nil && !blockchain.IsCoinBaseTx(wTx) {
 
 			// Check if we have the previous transaction in the cache
 			prevTx := new(blocc.Tx)
