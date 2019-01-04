@@ -34,6 +34,7 @@ type Extractor struct {
 	txb         blocc.TxBus
 	ms          blocc.MetricStore
 	bm          blocc.BlockMonitor
+	dc          store.DistCache
 
 	throttleBlocks chan struct{}
 	throttleTxns   chan struct{}
@@ -56,7 +57,7 @@ type Extractor struct {
 	sync.Mutex
 }
 
-func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms blocc.MetricStore) (*Extractor, error) {
+func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms blocc.MetricStore, dc store.DistCache) (*Extractor, error) {
 
 	// Do any sanity checks
 	if 2*config.GetInt64("extractor.btc.blocks_request_count") > config.GetInt64("extractor.btc.throttle_transactions") {
@@ -70,6 +71,7 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 		txb:    txb,
 		ms:     ms,
 		bm:     blocc.NewBlockMonitorMem(),
+		dc:     dc,
 
 		throttleBlocks: make(chan struct{}, config.GetInt("extractor.btc.throttle_blocks")),
 		throttleTxns:   make(chan struct{}, config.GetInt("extractor.btc.throttle_transactions")),
@@ -254,8 +256,8 @@ func (e *Extractor) fetchBlockChain() {
 
 		// This will fetch blocks, the first block will be the one after this one and will return extractor.btc.blocks_request_count (500) blocks
 		e.Lock()
-		e.logger.Warnf("BLOCK %s - %d", e.validBlockId, e.validBlockHeight)
 		e.RequestBlocks(e.validBlockId, "0")
+
 		height := e.validBlockHeight + config.GetInt64("extractor.btc.blocks_request_count") // The last expected block (current + extractor.btc.blocks_request_count(500))
 		e.Unlock()
 

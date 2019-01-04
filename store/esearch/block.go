@@ -97,6 +97,7 @@ func (e *esearch) InsertTransaction(symbol string, t *blocc.Tx) error {
 		Type(DocType).
 		Routing(t.TxId).
 		Doc(t))
+
 	return nil
 
 }
@@ -133,6 +134,11 @@ func (e *esearch) FlushTransactions(symbol string) error {
 
 func (e *esearch) GetBlockHeight(symbol string) (string, int64, error) {
 
+	e.throttleSearches <- struct{}{}
+	defer func() {
+		<-e.throttleSearches
+	}()
+
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeBlock, symbol)).
 		Type(DocType).
@@ -163,13 +169,26 @@ func (e *esearch) GetBlockHeight(symbol string) (string, int64, error) {
 	return b.Id, b.Height, nil
 }
 
-func (e *esearch) GetBlockByHeight(symbol string, height int64) (*blocc.Block, error) {
+func (e *esearch) GetBlockByHeight(symbol string, height int64, includeRaw bool) (*blocc.Block, error) {
 
-	res, err := e.client.Search().
+	e.throttleSearches <- struct{}{}
+	defer func() {
+		<-e.throttleSearches
+	}()
+
+	b := new(blocc.Block)
+
+	query := e.client.Search().
 		Index(e.indexName(IndexTypeBlock, symbol)).
 		Type(DocType).
 		Query(elastic.NewTermQuery("height", height)).
-		From(0).Size(1).Do(e.ctx)
+		From(0).Size(1)
+
+	if !includeRaw {
+		query.FetchSourceContext(elastic.NewFetchSourceContext(true).Exclude("raw"))
+	}
+
+	res, err := query.Do(e.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("Could not get block: %v", err)
 	}
@@ -179,20 +198,30 @@ func (e *esearch) GetBlockByHeight(symbol string, height int64) (*blocc.Block, e
 	}
 
 	// Unmarshal the block
-	b := new(blocc.Block)
 	err = json.Unmarshal(*res.Hits.Hits[0].Source, b)
 	return b, err
 
 }
 
-func (e *esearch) GetBlockByBlockId(symbol string, blockId string) (*blocc.Block, error) {
+func (e *esearch) GetBlockByBlockId(symbol string, blockId string, includeRaw bool) (*blocc.Block, error) {
 
-	res, err := e.client.Search().
+	e.throttleSearches <- struct{}{}
+	defer func() {
+		<-e.throttleSearches
+	}()
+
+	query := e.client.Search().
 		Index(e.indexName(IndexTypeBlock, symbol)).
 		Type(DocType).
 		Routing(blockId).
 		Query(elastic.NewTermQuery("block_id", blockId)).
-		From(0).Size(1).Do(e.ctx)
+		From(0).Size(1)
+
+	if !includeRaw {
+		query.FetchSourceContext(elastic.NewFetchSourceContext(true).Exclude("raw"))
+	}
+
+	res, err := query.Do(e.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("Could not get block: %v", err)
 	}
@@ -209,6 +238,11 @@ func (e *esearch) GetBlockByBlockId(symbol string, blockId string) (*blocc.Block
 }
 
 func (e *esearch) GetBlockIdByHeight(symbol string, height int64) (string, error) {
+
+	e.throttleSearches <- struct{}{}
+	defer func() {
+		<-e.throttleSearches
+	}()
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeBlock, symbol)).
@@ -229,6 +263,11 @@ func (e *esearch) GetBlockIdByHeight(symbol string, height int64) (string, error
 }
 
 func (e *esearch) GetHeightByBlockId(symbol string, blockId string) (int64, error) {
+
+	e.throttleSearches <- struct{}{}
+	defer func() {
+		<-e.throttleSearches
+	}()
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeBlock, symbol)).
@@ -252,6 +291,37 @@ func (e *esearch) GetHeightByBlockId(symbol string, blockId string) (int64, erro
 
 }
 
-func (e *esearch) FindBlocks() ([]*blocc.Block, error) {
-	return nil, nil
+func (e *esearch) GetTxByTxId(symbol string, txId string, includeRaw bool) (*blocc.Tx, error) {
+
+	e.throttleSearches <- struct{}{}
+	defer func() {
+		<-e.throttleSearches
+	}()
+
+	query := e.client.Search().
+		Index(e.indexName(IndexTypeTx, symbol)).
+		Type(DocType).
+		Query(elastic.NewTermQuery("tx_id", txId)).
+		Routing(txId).
+		FetchSource(false).
+		From(0).Size(1)
+
+	if !includeRaw {
+		query.FetchSourceContext(elastic.NewFetchSourceContext(true).Exclude("raw"))
+	}
+
+	res, err := query.Do(e.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("Could not get block: %v", err)
+	}
+
+	if res.Hits.TotalHits == 0 {
+		return nil, store.ErrNotFound
+	}
+
+	// Unmarshal the Tx
+	tx := new(blocc.Tx)
+	err = json.Unmarshal(*res.Hits.Hits[0].Source, tx)
+	return tx, err
+
 }

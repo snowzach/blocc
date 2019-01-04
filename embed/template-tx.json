@@ -44,11 +44,33 @@
                 "block_time": {
                     "type": "long"
                 },
+                "in": {
+                    "type": "object",
+                    "properties": {
+                        "height": {
+                            "type": "long"
+                        },
+                        "out": {
+                            "type": "object",
+                            "properties": {
+                                "value": {
+                                    "type": "long"
+                                }
+                            }
+                        },
+                        "data": {
+                            "type": "object"
+                        }
+                    }
+                },
                 "out": {
                     "type": "object",
                     "properties": {
                         "value": {
                             "type": "long"
+                        },
+                        "data": {
+                            "type": "object"
                         }
                     }
                 },

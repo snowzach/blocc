@@ -25,19 +25,34 @@ message Tx {
     string tx_id = 4;
     int64 height = 5 [(gogoproto.jsontag) = "height"]; // Remove omitempty
     int64 time = 6;
-    repeated Out out = 8;
+    repeated TxIn in = 7;
+    repeated TxOut out = 8;
 
     // If Needed
-    bytes raw = 9 [(gogoproto.casttype) = "Raw"];
+    bytes raw = 14 [(gogoproto.casttype) = "Raw"];
     map<string, string> data = 15;
 }
 
-message Out {
+
+message TxIn {
+    string tx_id = 1;
+    int64 height = 2 [(gogoproto.jsontag) = "height"]; // Remove omitempty
+
+    // If we have the reference to the output
+    TxOut out = 3;
+
+    // If needed, additional metadata
+    bytes raw = 14 [(gogoproto.casttype) = "Raw"];
+    map<string, string> data = 15;
+}
+
+message TxOut {
+    // If we can decode it
     string type = 1;
     repeated string addresses = 2 [(gogoproto.jsontag) = "address"]; // Remove omitempty;
     int64 value = 3;
 
-    // If needed
+    // If needed, additional metadata
     bytes raw = 14 [(gogoproto.casttype) = "Raw"];
     map<string, string> data = 15;
 }
@@ -47,8 +62,10 @@ message Metric {
     string symbol = 2;
     string block_id = 3;
     string tx_id = 4;
-    int64 height = 5;
+    int64 height = 5 [(gogoproto.jsontag) = "height"]; // Remove omitempty
     int64 time = 6;
 
+    // If needed, additional metadata
+    bytes raw = 14 [(gogoproto.casttype) = "Raw"];
     map<string, string> data = 15;
 }

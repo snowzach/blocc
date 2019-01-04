@@ -14,6 +14,7 @@ TOOLS := ${GOPATH}/bin/go-bindata \
 export PROTOBUF_INCLUDES = -I. -I/usr/include -I${GOPATH}/src -I$(shell go list -e -f '{{.Dir}}' .) -I$(shell go list -e -f '{{.Dir}}' github.com/grpc-ecosystem/grpc-gateway/runtime)/../third_party/googleapis
 PROTOS := ./blocc/block.pb.go \
 	./server/rpc/mempool.pb.gw.go \
+	./server/rpc/btc.pb.gw.go \
 	./server/rpc/version.pb.gw.go
 
 .PHONY: default

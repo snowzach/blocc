@@ -46,6 +46,23 @@ func New(prefixes ...string) (*client, error) {
 
 }
 
+// Get a subprefix client of redis
+func (c *client) Prefix(prefixes ...string) *client {
+
+	newPrefix := c.prefix
+	if c.prefix != "" {
+		c.prefix += Delimeter
+	}
+	newPrefix += strings.Join(prefixes, Delimeter)
+
+	return &client{
+		logger: c.logger.With("prefix", newPrefix),
+		prefix: newPrefix,
+		client: c.client,
+	}
+
+}
+
 func (c *client) symPrefix(symbol string) string {
 	return c.prefix + Delimeter + symbol + Delimeter
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cast"
 
 	"git.coinninja.net/backend/blocc/blocc"
+	"git.coinninja.net/backend/blocc/store"
 )
 
 func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
@@ -118,7 +119,8 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx) 
 		TxId:   wTx.TxHash().String(),
 		Height: txHeight,
 		Data:   make(map[string]string),
-		Out:    make([]*blocc.Out, len(wTx.TxOut)),
+		In:     make([]*blocc.TxIn, len(wTx.TxIn)),
+		Out:    make([]*blocc.TxOut, len(wTx.TxOut)),
 	}
 
 	// Write the raw transaction
@@ -142,27 +144,71 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx) 
 
 	var txValue int64
 
+	// Parse all of the inputs
+	for height, vin := range wTx.TxIn {
+		txIn := &blocc.TxIn{
+			TxId:   vin.PreviousOutPoint.Hash.String(),
+			Height: int64(vin.PreviousOutPoint.Index),
+		}
+
+		// if we're part of a block and not a coinbase, resolve the previous
+		if blk != nil && txIn.TxId != "0000000000000000000000000000000000000000000000000000000000000000" {
+
+			// Check if we have the previous transaction in the cache
+			prevTx := new(blocc.Tx)
+			err := e.dc.GetScan("tx", txIn.TxId, &prevTx)
+			if err != nil {
+				prevTx, err = e.bcs.GetTxByTxId(Symbol, txIn.TxId, false)
+				if err == store.ErrNotFound {
+					e.logger.Warnw("Missing PreviousOutPoint",
+						"tx_id", txIn.TxId,
+						"height", txIn.Height,
+					)
+				} else if err != nil {
+					e.logger.Errorw("Could not fetch PreviousOutPoint",
+						"tx_id", txIn.TxId,
+						"height", txIn.Height,
+						"error", err,
+					)
+				}
+			}
+			if err == nil {
+				if int64(len(prevTx.Out)) > txIn.Height {
+					txIn.Out = prevTx.Out[txIn.Height]
+				} else {
+					e.logger.Warnw("PreviousOutPoint missing transaction",
+						"tx_id", txIn.TxId,
+						"height", txIn.Height,
+					)
+				}
+			}
+
+		}
+
+		tx.In[height] = txIn
+	}
+
 	// Parse all of the outputs
 	for height, vout := range wTx.TxOut {
-		scriptType, addresses, _, err := txscript.ExtractPkScriptAddrs(vout.PkScript, e.chainParams)
-		// Could not decode
-		if err != nil {
-			// Encode the raw bytes instead
-			tx.Out[height] = &blocc.Out{
-				Type:  txscript.NonStandardTy.String(),
-				Raw:   vout.PkScript,
-				Value: vout.Value,
-			}
-			txValue += vout.Value
-			//e.logger.Warnw("Could not decode PkScript", "txId", tx.TxId, "error", err, "addresses", addresses, "script", hex.EncodeToString(vout.PkScript))
-			continue
-		}
-		tx.Out[height] = &blocc.Out{
-			Type:      scriptType.String(),
-			Addresses: parseBTCAddresses(addresses),
-			Value:     vout.Value,
+
+		txOut := &blocc.TxOut{
+			Value: vout.Value,
+			Raw:   vout.PkScript,
 		}
 		txValue += vout.Value
+
+		// Attempt to parse simple addresses out of the script
+		scriptType, addresses, reqSigs, err := txscript.ExtractPkScriptAddrs(vout.PkScript, e.chainParams)
+		// Could not decode
+		if err != nil {
+			txOut.Type = txscript.NonStandardTy.String()
+		} else {
+			txOut.Type = scriptType.String()
+			txOut.Addresses = parseBTCAddresses(addresses)
+			txOut.Data = map[string]string{"reqSigs": cast.ToString(reqSigs)}
+		}
+
+		tx.Out[height] = txOut
 	}
 
 	tx.Data["value"] = cast.ToString(txValue)
@@ -180,6 +226,15 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx) 
 			if err != nil {
 				e.logger.Errorw("Could not BlockStore InsertTransaction", "error", err)
 			}
+
+			// Also store it in our cache as we may need to look it up before the refresh interval
+			err = e.dc.Set("tx", tx.TxId, tx, 3*time.Minute)
+			if err != nil {
+				e.logger.Errorw("Could not DistCache InsertTransaction", "error", err)
+			}
+			e.logger.Infow("SET",
+				"tx_id", tx.TxId,
+			)
 		}
 
 		// If we have a TxPool, remove this transaction if it exists

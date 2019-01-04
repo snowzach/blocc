@@ -61,7 +61,7 @@ require (
 	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0 // indirect
 	github.com/moul/http2curl v1.0.0 // indirect
-	github.com/olivere/elastic v6.2.14+incompatible
+	github.com/olivere/elastic v6.2.15+incompatible
 	github.com/onsi/ginkgo v1.7.0 // indirect
 	github.com/onsi/gomega v1.4.3 // indirect
 	github.com/openzipkin/zipkin-go v0.1.3 // indirect
@@ -94,7 +94,7 @@ require (
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.9.1
 	golang.org/x/lint v0.0.0-20181217174547-8f45f776aaf1 // indirect
-	golang.org/x/net v0.0.0-20181217023233-e147a9138326
+	golang.org/x/net v0.0.0-20181220203305-927f97764cc3
 	golang.org/x/oauth2 v0.0.0-20181203162652-d668ce993890 // indirect
 	golang.org/x/sys v0.0.0-20181218192612-074acd46bca6 // indirect
 	golang.org/x/tools v0.0.0-20181219185013-88e3b261f280 // indirect

@@ -29,16 +29,21 @@ type esearch struct {
 	bulk   *elastic.BulkProcessor
 	ctx    context.Context
 
+	throttleSearches chan struct{}
+
 	index string
 }
 
-// NewES creates a connection to Elasticsearch to interact with
+// NewES creates a connection to Elasticsearch to interact with, it can (and should) use a DistCache to overcome the Refresh interval
 func New() (*esearch, error) {
 
 	e := &esearch{
 		logger: zap.S().With("package", "blockstore.esearch"),
 		ctx:    context.Background(),
-		index:  config.GetString("elasticsearch.index"),
+
+		throttleSearches: make(chan struct{}, config.GetInt("elasticsearch.throttle_searches")),
+
+		index: config.GetString("elasticsearch.index"),
 	}
 
 	if config.GetString("elasticsearch.host") != "" && config.GetString("elasticsearch.port") != "" {

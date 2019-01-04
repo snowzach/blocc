@@ -67,6 +67,8 @@ func init() {
 	config.SetDefault("elasticsearch.bulk_stats_interval", "60s")
 	config.SetDefault("elasticsearch.wipe_confirm", false)
 
+	config.SetDefault("elasticsearch.throttle_searches", 300)
+
 	config.SetDefault("elasticsearch.block.template_file", "") // Defaults to loading embedded template-block.json if not specified
 	config.SetDefault("elasticsearch.block.index_shards", 5)
 	config.SetDefault("elasticsearch.block.index_replicas", 0)

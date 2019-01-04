@@ -27,11 +27,13 @@ type BlockChainStore interface {
 	GetHeightByBlockId(symbol string, blockId string) (int64, error)
 
 	// Get Block by height or id
-	GetBlockByHeight(symbol string, height int64) (*Block, error)
-	GetBlockByBlockId(symbol string, blockId string) (*Block, error)
+	GetBlockByHeight(symbol string, height int64, includeRaw bool) (*Block, error)
+	GetBlockByBlockId(symbol string, blockId string, includeRaw bool) (*Block, error)
+
+	GetTxByTxId(symbol string, txId string, includeRaw bool) (*Tx, error)
 
 	// GetBlockByTxId(symbol string, txId string, includeRaw bool) (*store.Block, error)
-	// GetTxByTxId(symbol string, txId string, includeRaw bool) (*store.Tx, error)
+
 	// FindTxByHeight(symbol string, height int64, includeRaw bool) ([]*store.Tx, error)
 	// FindTxByBlockId(symbol string, blockId string, includeRaw bool) ([]*store.Tx, error)
 
