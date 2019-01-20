@@ -30,6 +30,8 @@ type esearch struct {
 	ctx    context.Context
 
 	throttleSearches chan struct{}
+	indexBlockById   bool
+	indexTxById      bool
 
 	index string
 }
@@ -42,6 +44,9 @@ func New() (*esearch, error) {
 		ctx:    context.Background(),
 
 		throttleSearches: make(chan struct{}, config.GetInt("elasticsearch.throttle_searches")),
+
+		indexBlockById: true,
+		indexTxById:    true,
 
 		index: config.GetString("elasticsearch.index"),
 	}

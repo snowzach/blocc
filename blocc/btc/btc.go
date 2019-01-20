@@ -33,7 +33,7 @@ type Extractor struct {
 	txp         blocc.TxPool
 	txb         blocc.TxBus
 	ms          blocc.MetricStore
-	bm          blocc.BlockMonitor
+	btm         blocc.BlockTxMonitor
 	dc          store.DistCache
 
 	throttleBlocks chan struct{}
@@ -70,7 +70,7 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 		txp:    txp,
 		txb:    txb,
 		ms:     ms,
-		bm:     blocc.NewBlockMonitorMem(),
+		btm:    blocc.NewBlockTxMonitorMem(),
 		dc:     dc,
 
 		throttleBlocks: make(chan struct{}, config.GetInt("extractor.btc.throttle_blocks")),
@@ -202,8 +202,8 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 		conf.Stop.Add(1) // Hold shutdown until everything flushed
 		<-conf.Stop.Chan()
 		e.peer.Disconnect()
-		e.bm.Shutdown() // Shutdown the monitor
-		e.Wait()        // Wait until all blocks are handled
+		e.btm.Shutdown() // Shutdown the monitor
+		e.Wait()         // Wait until all blocks are handled
 		if e.bcs != nil {
 			e.logger.Info("Flushing BlockChainStore")
 			e.bcs.FlushBlocks(Symbol)
@@ -219,54 +219,55 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 // fetchBlockChain will start fetching blocks until it has the entire block chain
 func (e *Extractor) fetchBlockChain() {
 
-	var err error
-
 	// Figure out the top block in the store
-	e.validBlockId, e.validBlockHeight, err = e.bcs.GetBlockHeight(Symbol)
+	validBlockId, validBlockHeight, err := e.bcs.GetBlockHeight(Symbol)
 	if err != nil && err != store.ErrNotFound {
 		e.logger.Fatalw("GetBlockHeight", "error", err)
 	} else {
-		if err == store.ErrNotFound || e.validBlockHeight < config.GetInt64("extractor.btc.start_block_height") {
+		if err == store.ErrNotFound || e.getValidBlockHeight() < config.GetInt64("extractor.btc.start_block_height") {
 			// Set to the start block if we don't have any or for some reason we were requested to start higher
-			e.validBlockId = config.GetString("extractor.btc.start_block_id")
-			e.validBlockHeight = config.GetInt64("extractor.btc.start_block_height")
+			validBlockId = config.GetString("extractor.btc.start_block_id")
+			validBlockHeight = config.GetInt64("extractor.btc.start_block_height")
 		}
 	}
+	e.setValidBlock(validBlockId, validBlockHeight)
 
 	// If we're starting at the genesis block, insert it
-	if e.validBlockHeight == -1 {
+	if validBlockHeight == -1 {
 		e.handleBlock(e.chainParams.GenesisBlock)
 		// The genesis block is now the valid block
-		e.validBlockHeight = 0
-		e.validBlockId = e.chainParams.GenesisBlock.BlockHash().String()
+		e.setValidBlock(e.chainParams.GenesisBlock.BlockHash().String(), 0)
 	}
 
-	e.logger.Infow("Starting block extraction", "start_block_id", e.validBlockId, "start_block_height", e.validBlockHeight)
+	e.logger.Infow("Starting block extraction", "start_block_id", e.getValidBlockId(), "start_block_height", e.getValidBlockHeight())
 
 	for !conf.Stop.Bool() {
 		start := time.Now()
 
 		// Expire other blocks below this block, we no longer need them
-		e.bm.ExpireBelowBlockHeight(e.validBlockHeight)
+		e.btm.ExpireBelowBlockHeight(e.getValidBlockHeight())
 
-		// If the last block we've received is the valid block height, we're done
-		if int64(e.peer.LastBlock()) == e.validBlockHeight {
+		// If the last block we've received is the valid block height, we're caught up
+		if int64(e.peer.LastBlock()) == e.getValidBlockHeight() {
+			e.Unlock()
 			return
 		}
 
 		// This will fetch blocks, the first block will be the one after this one and will return extractor.btc.blocks_request_count (500) blocks
-		e.Lock()
-		e.RequestBlocks(e.validBlockId, "0")
+		e.RequestBlocks(e.getValidBlockId(), "0")
+		// Testing, stop at block 10k
+		// e.RequestBlocks(e.getValidBlockId(), "0000000099c744455f58e6c6e98b671e1bf7f37346bfd4cf5d0274ad8ee660cb")
 
-		height := e.validBlockHeight + config.GetInt64("extractor.btc.blocks_request_count") // The last expected block (current + extractor.btc.blocks_request_count(500))
-		e.Unlock()
+		expectedLastHeight := e.getValidBlockHeight() + config.GetInt64("extractor.btc.blocks_request_count") // The last expected block (current + extractor.btc.blocks_request_count(500))
 
 		select {
-		// Otherwise, wait for the blocks
-		case blk := <-e.bm.WaitForBlockHeight(height, time.Now().Add(config.GetDuration("extractor.btc.blocks_request_timeout"))):
+		// Otherwise, wait for the blocks, if it fairls
+		case blk := <-e.btm.WaitForBlockHeight(expectedLastHeight, time.Now().Add(config.GetDuration("extractor.btc.blocks_request_timeout"))):
 			if blk == nil {
-				e.logger.Errorw("Did not get block when following blockchain", "height", height)
-				e.logger.Warnw("Continuing block extraction after timeout", "block_id", e.validBlockId, "block_height", e.validBlockHeight)
+				e.Lock()
+				e.logger.Errorw("Did not get block when following blockchain", "height", expectedLastHeight)
+				e.logger.Warnw("Continuing block extraction after timeout", "block_id", e.getValidBlockId(), "block_height", e.getValidBlockHeight())
+				e.Unlock()
 				continue
 			} else {
 				e.logger.Infow("Block Chain Stats",
@@ -274,7 +275,7 @@ func (e *Extractor) fetchBlockChain() {
 					"rate(/h)", 500.0/(time.Now().Sub(start).Hours()),
 					"rate(/m)", 500.0/time.Now().Sub(start).Minutes(),
 					"rate(/s)", 500.0/time.Now().Sub(start).Seconds(),
-					"eta", (time.Duration(float64(int64(e.peer.LastBlock())-height)/(500.0/time.Now().Sub(start).Seconds())) * time.Second).String(),
+					"eta", (time.Duration(float64(int64(e.peer.LastBlock())-expectedLastHeight)/(500.0/time.Now().Sub(start).Seconds())) * time.Second).String(),
 				)
 			}
 		// We're exiting
@@ -368,4 +369,29 @@ func (e *Extractor) OnRead(p *peer.Peer, bytesRead int, msg wire.Message, err er
 // OnWrite is a low level function to capture raw message going out
 func (e *Extractor) OnWrite(p *peer.Peer, bytesWritten int, msg wire.Message, err error) {
 	e.logger.Debugw("Sent Message", "type", reflect.TypeOf(msg), "size", bytesWritten, "error", err)
+}
+
+func (e *Extractor) getValidBlockHeight() int64 {
+	e.Lock()
+	defer e.Unlock()
+	return e.validBlockHeight
+}
+
+func (e *Extractor) getValidBlockId() string {
+	e.Lock()
+	defer e.Unlock()
+	return e.validBlockId
+}
+
+func (e *Extractor) getValidBlock() (string, int64) {
+	e.Lock()
+	defer e.Unlock()
+	return e.validBlockId, e.validBlockHeight
+}
+
+func (e *Extractor) setValidBlock(blockId string, blockHeight int64) {
+	e.Lock()
+	defer e.Unlock()
+	e.validBlockId = blockId
+	e.validBlockHeight = blockHeight
 }

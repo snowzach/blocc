@@ -62,21 +62,20 @@ func init() {
 	config.SetDefault("elasticsearch.retries", 5)
 	config.SetDefault("elasticsearch.sleep_between_retries", "5s")
 	config.SetDefault("elasticsearch.index", "blocc")
+	config.SetDefault("elasticsearch.throttle_searches", 30)
 	config.SetDefault("elasticsearch.bulk_workers", 2)
 	config.SetDefault("elasticsearch.bulk_stats", false)
 	config.SetDefault("elasticsearch.bulk_stats_interval", "60s")
 	config.SetDefault("elasticsearch.wipe_confirm", false)
 
-	config.SetDefault("elasticsearch.throttle_searches", 300)
-
 	config.SetDefault("elasticsearch.block.template_file", "") // Defaults to loading embedded template-block.json if not specified
 	config.SetDefault("elasticsearch.block.index_shards", 5)
 	config.SetDefault("elasticsearch.block.index_replicas", 0)
-	config.SetDefault("elasticsearch.block.refresh_interval", "30s")
+	config.SetDefault("elasticsearch.block.refresh_interval", "15s")
 	config.SetDefault("elasticsearch.tx.template_file", "") // Defaults to loading embedded template-tx.json if not specified
 	config.SetDefault("elasticsearch.tx.index_shards", 25)
 	config.SetDefault("elasticsearch.tx.index_replicas", 0)
-	config.SetDefault("elasticsearch.tx.refresh_interval", "30s")
+	config.SetDefault("elasticsearch.tx.refresh_interval", "15s")
 
 	// Redis Settings
 	config.SetDefault("redis.host", "redis")

@@ -73,14 +73,16 @@ type TxChannel interface {
 }
 
 // BlockHeightMonitor is a lookup/cachce provider
-type BlockMonitor interface {
+type BlockTxMonitor interface {
 	AddBlock(block *Block, expires time.Time)
+	AddTx(tx *Tx, expires time.Time)
 	ExpireBelowBlockHeight(height int64)
 	Shutdown()
-	BlockMonitorWaiter
+	BlockTxMonitorWaiter
 }
 
-type BlockMonitorWaiter interface {
+type BlockTxMonitorWaiter interface {
 	WaitForBlockId(blockId string, expires time.Time) <-chan *Block
 	WaitForBlockHeight(height int64, expires time.Time) <-chan *Block
+	WaitForTxId(txId string, expires time.Time) <-chan *Tx
 }

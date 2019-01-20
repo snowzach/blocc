@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cast"
 
 	"git.coinninja.net/backend/blocc/blocc"
+	"git.coinninja.net/backend/blocc/conf"
 	"git.coinninja.net/backend/blocc/store"
 )
 
@@ -61,27 +62,20 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 
 	// if BlockChainStore is activated, determine the height if possible and store the block
 	if e.bcs != nil {
-		e.Lock()
 		// If we know of this previous block, record the height
-		if blk.PrevBlockId == e.validBlockId {
-			blk.Height = e.validBlockHeight + 1
-			e.validBlockId = blk.BlockId
-			e.validBlockHeight = blk.Height
-			e.Unlock()
+		if blk.PrevBlockId == e.getValidBlockId() {
+			blk.Height = e.getValidBlockHeight() + 1
+			e.setValidBlock(blk.BlockId, blk.Height)
 		} else {
-			e.Unlock()
 			// If we still don't know, wait for it
 			select {
-			case prevBlk := <-e.bm.WaitForBlockId(blk.PrevBlockId, time.Now().Add(e.blockMonitorTimeout)):
+			case prevBlk := <-e.btm.WaitForBlockId(blk.PrevBlockId, time.Now().Add(e.blockMonitorTimeout)):
 				if prevBlk != nil && prevBlk.Height != blocc.HeightUnknown {
 					// Set the height
 					blk.Height = prevBlk.Height + 1
 
 					// Register this as the highet block
-					e.Lock()
-					e.validBlockId = blk.BlockId
-					e.validBlockHeight = blk.Height
-					e.Unlock()
+					e.setValidBlock(blk.BlockId, blk.Height)
 				}
 			}
 		}
@@ -92,9 +86,11 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 			if err != nil {
 				e.logger.Errorw("Could not BlockStore InsertBlockBTC", "error", err)
 			}
+		} else if conf.Stop.Bool() {
+			// We're shutting down, don't continue to parse transactions as we don't have the height
+			return
 		}
 
-		e.bm.AddBlock(blk, time.Now().Add(e.blockMonitorLifetime))
 	}
 
 	// Handle transactions in parallel
@@ -112,7 +108,7 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 
 	// Everything is handled, add it to the block monitor
 	if e.bcs != nil {
-		e.bm.AddBlock(blk, time.Now().Add(e.blockMonitorLifetime))
+		e.btm.AddBlock(blk, time.Now().Add(e.blockMonitorLifetime))
 	}
 
 }
@@ -159,31 +155,30 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx) 
 		// if we're part of a block and not a coinbase, resolve the previous
 		if blk != nil && !blockchain.IsCoinBaseTx(wTx) {
 
-			// Check if we have the previous transaction in the cache
-			prevTx := new(blocc.Tx)
-			err := e.dc.GetScan("tx", txIn.TxId, &prevTx)
-			if err != nil {
+			var err error
+			// Check the blockTXMonitor for the transaction
+			prevTx := <-e.btm.WaitForTxId(txIn.TxId, time.Now().Add(20*time.Millisecond))
+			if prevTx == nil {
+				// Check the blockChainStore for the transaction
 				prevTx, err = e.bcs.GetTxByTxId(Symbol, txIn.TxId, false)
-				if err == store.ErrNotFound {
-					e.logger.Warnw("Missing PreviousOutPoint",
+				if err != nil && err != store.ErrNotFound {
+					e.logger.Errorw("Error on bcs.GetTxByTxId",
 						"tx_id", txIn.TxId,
 						"height", txIn.Height,
-					)
-				} else if err != nil {
-					e.logger.Errorw("Could not fetch PreviousOutPoint",
-						"tx_id", txIn.TxId,
-						"height", txIn.Height,
+						"blkheight", blk.Height,
 						"error", err,
 					)
 				}
 			}
-			if err == nil {
+			// We never found the previous transaction, this is a problem
+			if prevTx != nil {
 				if int64(len(prevTx.Out)) > txIn.Height {
 					txIn.Out = prevTx.Out[txIn.Height]
 				} else {
 					e.logger.Warnw("PreviousOutPoint missing transaction",
 						"tx_id", txIn.TxId,
 						"height", txIn.Height,
+						"blkheight", blk.Height,
 					)
 				}
 			}
@@ -227,19 +222,14 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx) 
 
 		// Insert it into the BlockChainStore but only if we know of it as part of the chain
 		if e.bcs != nil && blk.Height != blocc.HeightUnknown {
+			// Add this transaction to the BlockTxMonitor
+			e.btm.AddTx(tx, time.Now().Add(3*time.Minute))
+
 			err := e.bcs.InsertTransaction(Symbol, tx)
 			if err != nil {
 				e.logger.Errorw("Could not BlockStore InsertTransaction", "error", err)
 			}
 
-			// Also store it in our cache as we may need to look it up before the refresh interval
-			err = e.dc.Set("tx", tx.TxId, tx, 3*time.Minute)
-			if err != nil {
-				e.logger.Errorw("Could not DistCache InsertTransaction", "error", err)
-			}
-			e.logger.Infow("SET",
-				"tx_id", tx.TxId,
-			)
 		}
 
 		// If we have a TxPool, remove this transaction if it exists
@@ -286,7 +276,7 @@ func parseWitness(in [][]byte) []string {
 func parseBTCAddresses(in []btcutil.Address) []string {
 	ret := make([]string, len(in), len(in))
 	for x, y := range in {
-		ret[x] = y.String()
+		ret[x] = y.EncodeAddress()
 	}
 	return ret
 }

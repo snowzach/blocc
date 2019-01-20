@@ -55,6 +55,9 @@
                             "properties": {
                                 "value": {
                                     "type": "long"
+                                },
+                                "data": {
+                                    "type": "object"
                                 }
                             }
                         },
