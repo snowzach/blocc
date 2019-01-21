@@ -63,8 +63,9 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 	// if BlockChainStore is activated, determine the height if possible and store the block
 	if e.bcs != nil {
 		// If we know of this previous block, record the height
-		if blk.PrevBlockId == e.getValidBlockId() {
-			blk.Height = e.getValidBlockHeight() + 1
+		validBlockId, validBlockHeight, _ := e.getValidBlock()
+		if blk.PrevBlockId == validBlockId {
+			blk.Height = validBlockHeight + 1
 			e.setValidBlock(blk.BlockId, blk.Height)
 		} else {
 			// If we still don't know, wait for it

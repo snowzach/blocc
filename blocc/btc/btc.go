@@ -232,23 +232,28 @@ func (e *Extractor) fetchBlockChain() {
 	for !conf.Stop.Bool() {
 		start := time.Now()
 
+		validBlockId, validBlockHeight, _ := e.getValidBlock()
+
 		// If the last block we've received is the valid block height, we're caught up
-		if int64(e.peer.LastBlock()) == e.getValidBlockHeight() {
+		if int64(e.peer.LastBlock()) == validBlockHeight {
 			time.Sleep(time.Second)
 			continue
 		}
 
 		// Expire other blocks below this block, we no longer need them
-		e.btm.ExpireBelowBlockHeight(e.getValidBlockHeight())
+		e.btm.ExpireBelowBlockHeight(validBlockHeight)
 
 		// This will fetch blocks, the first block will be the one after this one and will return extractor.btc.blocks_request_count (500) blocks
-		e.RequestBlocks(e.getValidBlockId(), "0")
+		e.logger.Debugw("Requesting blocks from", "block_id", validBlockId, "block_height", validBlockHeight)
+
+		// Fetch blocks
+		e.RequestBlocks(validBlockId, "0")
 		// Testing, stop at block 10k
 		// e.RequestBlocks(e.getValidBlockId(), "0000000099c744455f58e6c6e98b671e1bf7f37346bfd4cf5d0274ad8ee660cb")
 
-		expectedLastHeight := e.getValidBlockHeight() + config.GetInt64("extractor.btc.blocks_request_count") // The last expected block (current + extractor.btc.blocks_request_count(500))
+		expectedLastHeight := validBlockHeight + config.GetInt64("extractor.btc.blocks_request_count") // The last expected block (current + extractor.btc.blocks_request_count(500))
 
-		// If we have no block for 10 minutes, assume it stalled
+		// If we have no block for extractor.btc.block_timeout, assume it stalled
 		blockTimeout := make(chan struct{})
 		go func() {
 			for {
@@ -266,7 +271,7 @@ func (e *Extractor) fetchBlockChain() {
 		}()
 
 		select {
-		// Otherwise, wait for the blocks, if it fairls
+		// Otherwise, wait for the the last block in the stream of blocks
 		case blk := <-e.btm.WaitForBlockHeight(expectedLastHeight, config.GetDuration("extractor.btc.blocks_request_timeout")):
 			close(blockTimeout)
 			if blk == nil {
@@ -282,6 +287,7 @@ func (e *Extractor) fetchBlockChain() {
 					"eta", (time.Duration(float64(int64(e.peer.LastBlock())-expectedLastHeight)/(500.0/time.Now().Sub(start).Seconds())) * time.Second).String(),
 				)
 			}
+		// No block for extractor.btc.block_timeout
 		case <-blockTimeout:
 			e.logger.Errorw("Block timeout", "block_id", e.getValidBlockId(), "block_height", e.getValidBlockHeight(), "expected_height", expectedLastHeight)
 
@@ -324,12 +330,12 @@ func (e *Extractor) RequestMemPool() {
 
 // OnTx is called when we receive a transaction
 func (e *Extractor) OnTx(p *peer.Peer, msg *wire.MsgTx) {
-	e.handleTx(nil, blocc.HeightUnknown, msg)
+	go e.handleTx(nil, blocc.HeightUnknown, msg)
 }
 
 // OnBlock is called when we receive a block message
 func (e *Extractor) OnBlock(p *peer.Peer, msg *wire.MsgBlock, buf []byte) {
-	e.handleBlock(msg)
+	go e.handleBlock(msg)
 }
 
 // OnInv is called when the peer reports it has an inventory item

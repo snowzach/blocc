@@ -7,16 +7,14 @@ import (
 
 type BlockTxMonitorMemBlock struct {
 	block   *Block
-	waiters []chan *Block
+	wait    chan struct{}
 	expires time.Time
-	sync.Mutex
 }
 
 type BlockTxMonitorMemTx struct {
 	tx      *Tx
-	waiters []chan *Tx
+	wait    chan struct{}
 	expires time.Time
-	sync.Mutex
 }
 
 type BlockTxMonitorMem struct {
@@ -42,41 +40,35 @@ func NewBlockTxMonitorMem() *BlockTxMonitorMem {
 
 			// Scan the blocks for the expiring by height
 			for h, b := range btm.byBlockHeight {
-				b.Lock()
 				// Remove any expired blocks
 				if now.Sub(b.expires) > 0 {
+					// Close the wait channel if it's open
+					closeIfOpen(b.wait)
+					// Delete the reference
 					delete(btm.byBlockHeight, h)
-					for _, c := range b.waiters {
-						close(c)
-					}
 				}
-				b.Unlock()
 			}
 
 			// Scan the blocks for the expiring by Id (in case we never got block)
-			for id, b := range btm.byBlockId {
-				b.Lock()
+			for blockId, b := range btm.byBlockId {
 				// Remove any expired blocks
 				if now.Sub(b.expires) > 0 {
-					delete(btm.byBlockId, id)
-					for _, c := range b.waiters {
-						close(c)
-					}
+					// Close the wait channel if it's open
+					closeIfOpen(b.wait)
+					// Delete the reference
+					delete(btm.byBlockId, blockId)
 				}
-				b.Unlock()
 			}
 
 			// Scan for Tx that are expiring
-			for id, b := range btm.byTxId {
-				b.Lock()
+			for txId, t := range btm.byTxId {
 				// Remove any expired tx
-				if now.Sub(b.expires) > 0 {
-					delete(btm.byTxId, id)
-					for _, c := range b.waiters {
-						close(c)
-					}
+				if now.Sub(t.expires) > 0 {
+					// Close the wait channel if it's open
+					closeIfOpen(t.wait)
+					// Delete the reference
+					delete(btm.byTxId, txId)
 				}
-				b.Unlock()
 			}
 
 			btm.Unlock()
@@ -88,185 +80,14 @@ func NewBlockTxMonitorMem() *BlockTxMonitorMem {
 
 }
 
-// blockChan will create a channel and immediately return a value and close
-func blockChan(b *Block) <-chan *Block {
-	c := make(chan *Block, 1)
-	if b != nil {
-		c <- b
-	}
-	close(c)
-	return c
-}
-
-// txChan will create a channel and immediately return a value and close
-func txChan(b *Tx) <-chan *Tx {
-	c := make(chan *Tx, 1)
-	if b != nil {
-		c <- b
-	}
-	close(c)
-	return c
-}
-
-func timeoutBlockChan(inChan <-chan *Block, timeout time.Duration) <-chan *Block {
-	c := make(chan *Block, 1)
-	go func() {
-		select {
-		case blk := <-inChan:
-			c <- blk
-		case <-time.After(timeout):
-			// Timeout
-		}
+// Close the wait channel if it's open
+func closeIfOpen(c chan struct{}) {
+	select {
+	case <-c:
+		// It's closed
+	default:
 		close(c)
-	}()
-	return c
-
-}
-
-func timeoutTxChan(inChan <-chan *Tx, timeout time.Duration) <-chan *Tx {
-	c := make(chan *Tx, 1)
-	go func() {
-		select {
-		case tx := <-inChan:
-			c <- tx
-		case <-time.After(timeout):
-		}
-		close(c)
-	}()
-	return c
-}
-
-// Wait for the block id
-func (btm *BlockTxMonitorMem) WaitForBlockId(blockId string, timeout time.Duration) <-chan *Block {
-	btm.Lock()
-
-	// If shutdown
-	if btm.byBlockId == nil {
-		btm.Unlock()
-		return blockChan(nil)
 	}
-
-	// Do we have this block or have other waiters
-	if b, ok := btm.byBlockId[blockId]; ok {
-		b.Lock()
-		defer b.Unlock()
-		defer btm.Unlock()
-		// We already have the block
-		if b.block != nil {
-
-			return blockChan(b.block)
-		}
-		// We don't yet have the height, create a channel
-		c := make(chan *Block, 1)
-		b.waiters = append(b.waiters, c)
-		return timeoutBlockChan(c, timeout)
-	}
-
-	// We don't have record of this block yet
-	b := &BlockTxMonitorMemBlock{
-		waiters: make([]chan *Block, 0),
-		expires: time.Now().Add(timeout),
-	}
-	b.Lock()
-
-	// Unlock when we're done
-	defer b.Unlock()
-	defer btm.Unlock()
-
-	btm.byBlockId[blockId] = b
-	c := make(chan *Block, 1)
-	b.waiters = append(b.waiters, c)
-
-	// Return the channel
-	return timeoutBlockChan(c, timeout)
-}
-
-// Wait for the block height
-func (btm *BlockTxMonitorMem) WaitForBlockHeight(height int64, timeout time.Duration) <-chan *Block {
-	btm.Lock()
-
-	// If shutdown
-	if btm.byBlockHeight == nil {
-		btm.Unlock()
-		return blockChan(nil)
-	}
-
-	// Do we have this block or have other waiters
-	if b, ok := btm.byBlockHeight[height]; ok {
-		b.Lock()
-		defer b.Unlock()
-		defer btm.Unlock()
-		// We already have the block
-		if b.block != nil {
-			return blockChan(b.block)
-		}
-		// We don't yet have the height, create a channel
-		c := make(chan *Block, 1)
-		b.waiters = append(b.waiters, c)
-		return timeoutBlockChan(c, timeout)
-	}
-
-	// We don't have record of this block yet
-	b := &BlockTxMonitorMemBlock{
-		waiters: make([]chan *Block, 0),
-		expires: time.Now().Add(timeout),
-	}
-	b.Lock()
-
-	// Unlock when we're done
-	defer b.Unlock()
-	defer btm.Unlock()
-
-	btm.byBlockHeight[height] = b
-	c := make(chan *Block, 1)
-	b.waiters = append(b.waiters, c)
-
-	// Return the channel
-	return timeoutBlockChan(c, timeout)
-}
-
-// Wait for the txId
-func (btm *BlockTxMonitorMem) WaitForTxId(txId string, timeout time.Duration) <-chan *Tx {
-	btm.Lock()
-
-	// If shutdown
-	if btm.byTxId == nil {
-		btm.Unlock()
-		return txChan(nil)
-	}
-
-	// Do we have this tx or have other waiters
-	if b, ok := btm.byTxId[txId]; ok {
-		b.Lock()
-		defer b.Unlock()
-		defer btm.Unlock()
-		// We already have the block
-		if b.tx != nil {
-			return txChan(b.tx)
-		}
-		// We don't yet have the tx, create a channel
-		c := make(chan *Tx, 1)
-		b.waiters = append(b.waiters, c)
-		return timeoutTxChan(c, timeout)
-	}
-
-	// We don't have record of this block yet
-	b := &BlockTxMonitorMemTx{
-		waiters: make([]chan *Tx, 0),
-		expires: time.Now().Add(timeout),
-	}
-	b.Lock()
-
-	// Unlock when we're done
-	defer b.Unlock()
-	defer btm.Unlock()
-
-	btm.byTxId[txId] = b
-	c := make(chan *Tx, 1)
-	b.waiters = append(b.waiters, c)
-
-	// Return the channel
-	return timeoutTxChan(c, timeout)
 }
 
 func (btm *BlockTxMonitorMem) AddBlock(block *Block, expires time.Time) {
@@ -278,46 +99,40 @@ func (btm *BlockTxMonitorMem) AddBlock(block *Block, expires time.Time) {
 		return
 	}
 
-	// Do we have this block or have other waiters
+	// Do we have someone already waiting
 	if b, ok := btm.byBlockId[block.BlockId]; ok {
-		b.Lock()
 		// Save the block
 		b.block = block
 		b.expires = expires
-		// Send message to waiters
-		for _, w := range b.waiters {
-			w <- block
-			close(w)
-		}
-		b.waiters = nil
-		b.Unlock()
+		// Signal waiters
+		closeIfOpen(b.wait)
 	} else {
+		// We don't, create a record
 		b := &BlockTxMonitorMemBlock{
 			block:   block,
+			wait:    make(chan struct{}),
 			expires: expires,
 		}
+		close(b.wait) // Close the wait channel
 		btm.byBlockId[block.BlockId] = b
 	}
 
+	// We have a block height
 	if block.Height >= 0 {
-		// Do we have this block or have other waiters
+		// Are there any waiters
 		if b, ok := btm.byBlockHeight[block.Height]; ok {
-			b.Lock()
 			// Save the block
 			b.block = block
 			b.expires = expires
-			// Send message to waiters
-			for _, w := range b.waiters {
-				w <- block
-				close(w)
-			}
-			b.waiters = nil
-			b.Unlock()
+			// Signal waiters
+			closeIfOpen(b.wait)
 		} else {
 			b := &BlockTxMonitorMemBlock{
 				block:   block,
+				wait:    make(chan struct{}),
 				expires: expires,
 			}
+			close(b.wait) // Close the wait channel
 			btm.byBlockHeight[block.Height] = b
 		}
 	}
@@ -334,39 +149,158 @@ func (btm *BlockTxMonitorMem) AddTx(tx *Tx, expires time.Time) {
 	}
 
 	// Do we have this txId or have other waiters
-	if b, ok := btm.byTxId[tx.TxId]; ok {
-		b.Lock()
+	if t, ok := btm.byTxId[tx.TxId]; ok {
 		// Record tx
-		b.tx = tx
-		b.expires = expires
-		// Send message to waiters
-		for _, w := range b.waiters {
-			w <- tx
-			close(w)
-		}
-		b.waiters = nil
-		b.Unlock()
+		t.tx = tx
+		t.expires = expires
+		// Signal Waiters
+		closeIfOpen(t.wait)
 	} else {
-		b := &BlockTxMonitorMemTx{
+		t := &BlockTxMonitorMemTx{
 			tx:      tx,
+			wait:    make(chan struct{}),
 			expires: expires,
 		}
-		btm.byTxId[tx.TxId] = b
+		close(t.wait) // Close the wait channel
+		btm.byTxId[tx.TxId] = t
 	}
 }
 
-func (btm *BlockTxMonitorMem) ExpireBelowBlockHeight(height int64) {
+// Wait for the block id
+func (btm *BlockTxMonitorMem) WaitForBlockId(blockId string, timeout time.Duration) <-chan *Block {
+	btm.Lock()
+
+	c := make(chan *Block, 1)
+
+	// If shutdown
+	if btm.byBlockId == nil {
+		btm.Unlock()
+		close(c)
+		return c
+	}
+
+	// Do we have this block
+	b, ok := btm.byBlockId[blockId]
+	if !ok {
+		// We, don't, create a new one
+		b = &BlockTxMonitorMemBlock{
+			block:   nil,
+			wait:    make(chan struct{}),
+			expires: time.Now().Add(timeout + (5 * time.Second)), // Make it timeout a little after the actual timeout
+		}
+		btm.byBlockId[blockId] = b
+	}
+
+	btm.Unlock()
+
+	go func() {
+		select {
+		// We got the block or it expired
+		case <-b.wait:
+			c <- b.block
+		// We timed out
+		case <-time.After(timeout):
+			c <- nil
+		}
+	}()
+
+	return c
+
+}
+
+// Wait for the block height
+func (btm *BlockTxMonitorMem) WaitForBlockHeight(blockHeight int64, timeout time.Duration) <-chan *Block {
+	btm.Lock()
+
+	c := make(chan *Block, 1)
+
+	// If shutdown
+	if btm.byBlockHeight == nil {
+		btm.Unlock()
+		close(c)
+		return c
+	}
+
+	// Do we have this block
+	b, ok := btm.byBlockHeight[blockHeight]
+	if !ok {
+		// We, don't, create a new one
+		b = &BlockTxMonitorMemBlock{
+			block:   nil,
+			wait:    make(chan struct{}),
+			expires: time.Now().Add(timeout + (5 * time.Second)), // Make it timeout a little after the actual timeout
+		}
+		btm.byBlockHeight[blockHeight] = b
+	}
+
+	btm.Unlock()
+
+	go func() {
+		select {
+		// We got the block or it expired
+		case <-b.wait:
+			c <- b.block
+		// It timed out
+		case <-time.After(timeout):
+			c <- nil
+		}
+	}()
+
+	return c
+
+}
+
+// Wait for the txId
+func (btm *BlockTxMonitorMem) WaitForTxId(txId string, timeout time.Duration) <-chan *Tx {
+
+	btm.Lock()
+
+	c := make(chan *Tx, 1)
+
+	// If shutdown
+	if btm.byTxId == nil {
+		btm.Unlock()
+		close(c)
+		return c
+	}
+
+	// Do we have this block
+	t, ok := btm.byTxId[txId]
+	if !ok {
+		// We, don't, create a new one
+		t = &BlockTxMonitorMemTx{
+			tx:      nil,
+			wait:    make(chan struct{}),
+			expires: time.Now().Add(timeout + (5 * time.Second)), // Make it timeout a little after the actual timeout
+		}
+		btm.byTxId[txId] = t
+	}
+
+	btm.Unlock()
+
+	select {
+	// We got the tx or it expired
+	case <-t.wait:
+		c <- t.tx
+	// It timed out
+	case <-time.After(timeout):
+		c <- nil
+	}
+
+	return c
+
+}
+
+func (btm *BlockTxMonitorMem) ExpireBelowBlockHeight(blockHeight int64) {
 	btm.Lock()
 	defer btm.Unlock()
-	for h, b := range btm.byBlockHeight {
-		if h < height {
-			b.Lock()
-			delete(btm.byBlockHeight, h)
-			delete(btm.byBlockId, b.block.BlockId)
-			for _, c := range b.waiters {
-				close(c)
+	for bh, b := range btm.byBlockHeight {
+		if bh < blockHeight {
+			closeIfOpen(b.wait)
+			delete(btm.byBlockHeight, bh)
+			if b.block != nil {
+				delete(btm.byBlockId, b.block.BlockId)
 			}
-			b.Unlock()
 		}
 	}
 }
@@ -375,28 +309,16 @@ func (btm *BlockTxMonitorMem) Shutdown() {
 	btm.Lock()
 	defer btm.Unlock()
 	for h, b := range btm.byBlockHeight {
-		b.Lock()
+		closeIfOpen(b.wait)
 		delete(btm.byBlockHeight, h)
-		for _, c := range b.waiters {
-			close(c)
-		}
-		b.Unlock()
 	}
 	for id, b := range btm.byBlockId {
-		b.Lock()
+		closeIfOpen(b.wait)
 		delete(btm.byBlockId, id)
-		for _, c := range b.waiters {
-			close(c)
-		}
-		b.Unlock()
 	}
 	for id, b := range btm.byTxId {
-		b.Lock()
+		closeIfOpen(b.wait)
 		delete(btm.byTxId, id)
-		for _, c := range b.waiters {
-			close(c)
-		}
-		b.Unlock()
 	}
 	btm.byBlockId = nil
 	btm.byBlockHeight = nil
