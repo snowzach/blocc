@@ -69,13 +69,10 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 		} else {
 			// If we still don't know, wait for it
 			select {
-			case prevBlk := <-e.btm.WaitForBlockId(blk.PrevBlockId, time.Now().Add(e.blockMonitorTimeout)):
+			case prevBlk := <-e.btm.WaitForBlockId(blk.PrevBlockId, e.blockMonitorTimeout):
 				if prevBlk != nil && prevBlk.Height != blocc.HeightUnknown {
 					// Set the height
 					blk.Height = prevBlk.Height + 1
-
-					// Register this as the highet block
-					e.setValidBlock(blk.BlockId, blk.Height)
 				}
 			}
 		}
@@ -109,6 +106,11 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 	// Everything is handled, add it to the block monitor
 	if e.bcs != nil {
 		e.btm.AddBlock(blk, time.Now().Add(e.blockMonitorLifetime))
+	}
+
+	// Also register it as the highest block if we know it
+	if blk.Height != blocc.HeightUnknown {
+		e.setValidBlock(blk.BlockId, blk.Height)
 	}
 
 }
@@ -157,7 +159,7 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx) 
 
 			var err error
 			// Check the blockTXMonitor for the transaction
-			prevTx := <-e.btm.WaitForTxId(txIn.TxId, time.Now().Add(20*time.Millisecond))
+			prevTx := <-e.btm.WaitForTxId(txIn.TxId, 20*time.Millisecond)
 			if prevTx == nil {
 				// Check the blockChainStore for the transaction
 				prevTx, err = e.bcs.GetTxByTxId(Symbol, txIn.TxId, false)

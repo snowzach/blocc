@@ -36,33 +36,24 @@ type Extractor struct {
 	btm         blocc.BlockTxMonitor
 	dc          store.DistCache
 
-	throttleBlocks chan struct{}
-	throttleTxns   chan struct{}
-
 	storeRawBlocks       bool
 	storeRawTransactions bool
 
 	// This is used to determine how much complete data we have in our database
 	validBlockId     string
 	validBlockHeight int64
+	lastBlockTime    time.Time
 
 	blockMonitorTimeout  time.Duration
 	blockMonitorLifetime time.Duration
 
 	txLifetime time.Duration
 
-	newestBlock *blocc.Block
-
 	sync.WaitGroup
 	sync.Mutex
 }
 
 func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms blocc.MetricStore, dc store.DistCache) (*Extractor, error) {
-
-	// Do any sanity checks
-	if 2*config.GetInt64("extractor.btc.blocks_request_count") > config.GetInt64("extractor.btc.throttle_transactions") {
-		return nil, fmt.Errorf("extractor.btc.throttle_blocks should be at least 2 times extractor.btc.blocks_request_count")
-	}
 
 	e := &Extractor{
 		logger: zap.S().With("package", "blocc.btc"),
@@ -72,9 +63,6 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 		ms:     ms,
 		btm:    blocc.NewBlockTxMonitorMem(),
 		dc:     dc,
-
-		throttleBlocks: make(chan struct{}, config.GetInt("extractor.btc.throttle_blocks")),
-		throttleTxns:   make(chan struct{}, config.GetInt("extractor.btc.throttle_transactions")),
 
 		storeRawBlocks:       config.GetBool("extractor.btc.store_raw_blocks"),
 		storeRawTransactions: config.GetBool("extractor.btc.store_raw_transactions"),
@@ -244,14 +232,14 @@ func (e *Extractor) fetchBlockChain() {
 	for !conf.Stop.Bool() {
 		start := time.Now()
 
-		// Expire other blocks below this block, we no longer need them
-		e.btm.ExpireBelowBlockHeight(e.getValidBlockHeight())
-
 		// If the last block we've received is the valid block height, we're caught up
 		if int64(e.peer.LastBlock()) == e.getValidBlockHeight() {
-			e.Unlock()
-			return
+			time.Sleep(time.Second)
+			continue
 		}
+
+		// Expire other blocks below this block, we no longer need them
+		e.btm.ExpireBelowBlockHeight(e.getValidBlockHeight())
 
 		// This will fetch blocks, the first block will be the one after this one and will return extractor.btc.blocks_request_count (500) blocks
 		e.RequestBlocks(e.getValidBlockId(), "0")
@@ -260,9 +248,27 @@ func (e *Extractor) fetchBlockChain() {
 
 		expectedLastHeight := e.getValidBlockHeight() + config.GetInt64("extractor.btc.blocks_request_count") // The last expected block (current + extractor.btc.blocks_request_count(500))
 
+		// If we have no block for 10 minutes, assume it stalled
+		blockTimeout := make(chan struct{})
+		go func() {
+			for {
+				select {
+				case <-blockTimeout:
+					return
+				default:
+				}
+				if time.Now().Sub(e.getLastBlockTime()) > config.GetDuration("extractor.btc.block_timeout") {
+					close(blockTimeout)
+					return
+				}
+				time.Sleep(time.Minute)
+			}
+		}()
+
 		select {
 		// Otherwise, wait for the blocks, if it fairls
-		case blk := <-e.btm.WaitForBlockHeight(expectedLastHeight, time.Now().Add(config.GetDuration("extractor.btc.blocks_request_timeout"))):
+		case blk := <-e.btm.WaitForBlockHeight(expectedLastHeight, config.GetDuration("extractor.btc.blocks_request_timeout")):
+			close(blockTimeout)
 			if blk == nil {
 				e.Lock()
 				e.logger.Errorw("Did not get block when following blockchain", "height", expectedLastHeight)
@@ -278,7 +284,12 @@ func (e *Extractor) fetchBlockChain() {
 					"eta", (time.Duration(float64(int64(e.peer.LastBlock())-expectedLastHeight)/(500.0/time.Now().Sub(start).Seconds())) * time.Second).String(),
 				)
 			}
-		// We're exiting
+		case <-blockTimeout:
+			e.Lock()
+			e.logger.Errorw("Block timeout", "block_id", e.getValidBlockId(), "block_height", e.getValidBlockHeight(), "expected_height", expectedLastHeight)
+			e.Unlock()
+
+			// We're exiting
 		case <-conf.Stop.Chan():
 		}
 
@@ -317,21 +328,12 @@ func (e *Extractor) RequestMemPool() {
 
 // OnTx is called when we receive a transaction
 func (e *Extractor) OnTx(p *peer.Peer, msg *wire.MsgTx) {
-	e.throttleTxns <- struct{}{}
-	go func() {
-		e.handleTx(nil, blocc.HeightUnknown, msg)
-		<-e.throttleTxns
-	}()
+	e.handleTx(nil, blocc.HeightUnknown, msg)
 }
 
 // OnBlock is called when we receive a block message
 func (e *Extractor) OnBlock(p *peer.Peer, msg *wire.MsgBlock, buf []byte) {
-
-	e.throttleBlocks <- struct{}{}
-	go func() {
-		e.handleBlock(msg)
-		<-e.throttleBlocks
-	}()
+	e.handleBlock(msg)
 }
 
 // OnInv is called when the peer reports it has an inventory item
@@ -383,10 +385,16 @@ func (e *Extractor) getValidBlockId() string {
 	return e.validBlockId
 }
 
-func (e *Extractor) getValidBlock() (string, int64) {
+func (e *Extractor) getLastBlockTime() time.Time {
 	e.Lock()
 	defer e.Unlock()
-	return e.validBlockId, e.validBlockHeight
+	return e.lastBlockTime
+}
+
+func (e *Extractor) getValidBlock() (string, int64, time.Time) {
+	e.Lock()
+	defer e.Unlock()
+	return e.validBlockId, e.validBlockHeight, e.lastBlockTime
 }
 
 func (e *Extractor) setValidBlock(blockId string, blockHeight int64) {
@@ -394,4 +402,5 @@ func (e *Extractor) setValidBlock(blockId string, blockHeight int64) {
 	defer e.Unlock()
 	e.validBlockId = blockId
 	e.validBlockHeight = blockHeight
+	e.lastBlockTime = time.Now()
 }

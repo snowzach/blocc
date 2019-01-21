@@ -82,7 +82,7 @@ type BlockTxMonitor interface {
 }
 
 type BlockTxMonitorWaiter interface {
-	WaitForBlockId(blockId string, expires time.Time) <-chan *Block
-	WaitForBlockHeight(height int64, expires time.Time) <-chan *Block
-	WaitForTxId(txId string, expires time.Time) <-chan *Tx
+	WaitForBlockId(blockId string, expires time.Duration) <-chan *Block
+	WaitForBlockHeight(height int64, expires time.Duration) <-chan *Block
+	WaitForTxId(txId string, expires time.Duration) <-chan *Tx
 }

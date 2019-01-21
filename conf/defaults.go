@@ -93,10 +93,9 @@ func init() {
 	config.SetDefault("extractor.btc.transactions", false)
 	config.SetDefault("extractor.btc.start_block_id", "0000000000000000000000000000000000000000000000000000000000000000")
 	config.SetDefault("extractor.btc.start_block_height", -1)
-	config.SetDefault("extractor.btc.throttle_blocks", 1000)
-	config.SetDefault("extractor.btc.throttle_transactions", 15000)
 	config.SetDefault("extractor.btc.blocks_request_count", 500)
 	config.SetDefault("extractor.btc.blocks_request_timeout", "180m")
+	config.SetDefault("extractor.btc.block_timeout", "5m")
 	config.SetDefault("extractor.btc.block_monitor_lifetime", "240m")
 	config.SetDefault("extractor.btc.block_monitor_timeout", "60m")
 	config.SetDefault("extractor.btc.transaction_lifetime", "336h") // 14 days
