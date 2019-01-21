@@ -57,6 +57,7 @@ func init() {
 	config.SetDefault("elasticsearch.request_log", false)
 	config.SetDefault("elasticsearch.debug", false)
 	config.SetDefault("elasticsearch.sniff", true)
+	config.SetDefault("elasticsearch.healthcheck_timeout", "10s")
 	config.SetDefault("elasticsearch.host", "") // Override back to host when ready to use
 	config.SetDefault("elasticsearch.port", "9200")
 	config.SetDefault("elasticsearch.retries", 5)

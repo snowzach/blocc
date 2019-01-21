@@ -61,6 +61,7 @@ func New() (*esearch, error) {
 	esOptions := []elastic.ClientOptionFunc{
 		elastic.SetErrorLog(&errorLogger{logger: e.logger}),
 		elastic.SetURL(e.url),
+		elastic.SetHealthcheckTimeout(config.GetDuration("elasticsearch.healthcheck_timeout")),
 	}
 	if config.GetBool("elasticsearch.request_log") {
 		esOptions = append(esOptions, elastic.SetInfoLog(&infoLogger{logger: e.logger}))

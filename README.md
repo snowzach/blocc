@@ -60,6 +60,7 @@ LOGGER_LEVEL=debug
 | elasticsearch.request_log            | Log elasticsearch request/response timings             | false           |
 | elasticsearch.debug                  | Enabled debugging elastic request/responses            | false           |
 | elasticsearch.sniff                  | Enable monitoring elastic hosts                        | true            |
+| elasticsearch.healthcheck_timeout    | Default timeout for elasticsearch health check         | "10s"           |
 | elasticsearch.host                   | Base elasticsearch hostname                            | "elasticsearch" |
 | elasticsearch.port                   | Base elasticsearch port number                         | "9200"          |
 | elasticsearch.retries                | Connect retries                                        | 5               |

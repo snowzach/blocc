@@ -21,11 +21,11 @@ import (
 
 func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 
-	// Ensure we complete handling a block before exiting
+	// Block shutdown until fully processed to prevent partial blocks
 	e.Add(1)
 	defer e.Done()
 
-	e.logger.Infow("Handling Block", "block_id", wBlk.BlockHash().String())
+	e.logger.Debugw("Handling Block", "block_id", wBlk.BlockHash().String())
 
 	// Build the blocc.Block
 	blk := &blocc.Block{
@@ -60,6 +60,19 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 		blk.TxIds[x] = wTx.TxHash().String()
 	}
 
+	// This is a flag that will hold block related transaction processing until the block information has been determined
+	waitForBlockInfo := make(chan struct{})
+
+	// Handle transactions in parallel
+	var wg sync.WaitGroup
+	for x, wTx := range wBlk.Transactions {
+		wg.Add(1)
+		go func(txHeight int64, t *wire.MsgTx) {
+			e.handleTx(blk, waitForBlockInfo, txHeight, t)
+			wg.Done()
+		}(int64(x), wTx)
+	}
+
 	// if BlockChainStore is activated, determine the height if possible and store the block
 	if e.bcs != nil {
 		// If we know of this previous block, record the height
@@ -91,18 +104,14 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 
 	}
 
-	// Handle transactions in parallel
-	var wg sync.WaitGroup
-	for x, wTx := range wBlk.Transactions {
-		wg.Add(1)
-		go func(txHeight int64, t *wire.MsgTx) {
-			e.handleTx(blk, txHeight, t)
-			wg.Done()
-		}(int64(x), wTx)
-	}
+	// If we're here, we have either obtained the blockHeight or it's missing
+	close(waitForBlockInfo)
 	wg.Wait()
 
 	e.logger.Infow("Handled Block", "block_id", blk.BlockId, "height", blk.Height)
+
+	// TODO: Can we add the block to the monitor before transaction are finished processing?
+	// There might be a race for transactions in the same block or nearby blocks
 
 	// Everything is handled, add it to the block monitor
 	if e.bcs != nil {
@@ -116,7 +125,7 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 
 }
 
-func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx) {
+func (e *Extractor) handleTx(blk *blocc.Block, waitForBlockInfo chan struct{}, txHeight int64, wTx *wire.MsgTx) {
 
 	// Build the blocc.Tx
 	tx := &blocc.Tx{
@@ -144,52 +153,7 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx) 
 	tx.Data["lock_time"] = cast.ToString(wTx.LockTime)
 	tx.Data["hash"] = wTx.TxHash().String()
 
-	// TODO: Fetch the source addesses from the blockstore
-
 	var txValue int64
-
-	// Parse all of the inputs
-	for height, vin := range wTx.TxIn {
-		txIn := &blocc.TxIn{
-			TxId:   vin.PreviousOutPoint.Hash.String(),
-			Height: int64(vin.PreviousOutPoint.Index),
-		}
-
-		// if we're part of a block and not a coinbase, resolve the previous
-		if blk != nil && !blockchain.IsCoinBaseTx(wTx) {
-
-			var err error
-			// Check the blockTXMonitor for the transaction
-			prevTx := <-e.btm.WaitForTxId(txIn.TxId, 20*time.Millisecond)
-			if prevTx == nil {
-				// Check the blockChainStore for the transaction
-				prevTx, err = e.bcs.GetTxByTxId(Symbol, txIn.TxId, false)
-				if err != nil && err != store.ErrNotFound {
-					e.logger.Errorw("Error on bcs.GetTxByTxId",
-						"tx_id", txIn.TxId,
-						"height", txIn.Height,
-						"blkheight", blk.Height,
-						"error", err,
-					)
-				}
-			}
-			// We never found the previous transaction, this is a problem
-			if prevTx != nil {
-				if int64(len(prevTx.Out)) > txIn.Height {
-					txIn.Out = prevTx.Out[txIn.Height]
-				} else {
-					e.logger.Warnw("PreviousOutPoint missing transaction",
-						"tx_id", txIn.TxId,
-						"height", txIn.Height,
-						"blkheight", blk.Height,
-					)
-				}
-			}
-
-		}
-
-		tx.In[height] = txIn
-	}
 
 	// Parse all of the outputs
 	for height, vout := range wTx.TxOut {
@@ -213,11 +177,103 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx) 
 
 		tx.Out[height] = txOut
 	}
-
 	tx.Data["value"] = cast.ToString(txValue)
+
+	// At this point all transaction outputs are final and safe to read.
+	// The only things accessed from the BlockTxMonitor are the outputs so it's safe to put the transaction in the BlockTxMonitor
+	if blk != nil && e.bcs != nil {
+		e.btm.AddTx(tx, time.Now().Add(time.Minute))
+	}
+
+	var skipResolvingPreviousOutpoints bool
+
+	// Parse all of the inputs
+	for height, vin := range wTx.TxIn {
+		txIn := &blocc.TxIn{
+			TxId:   vin.PreviousOutPoint.Hash.String(),
+			Height: int64(vin.PreviousOutPoint.Index),
+		}
+		tx.In[height] = txIn
+
+		// if we're not skipping resolving inputs
+		// We're part of a block and not a coinbase,
+		// resolve the transaction inputs
+		if !skipResolvingPreviousOutpoints && blk != nil && !blockchain.IsCoinBaseTx(wTx) {
+
+			var err error
+			// Check the blockTXMonitor for the transaction
+			prevTx := <-e.btm.WaitForTxId(txIn.TxId, 50*time.Millisecond)
+			if prevTx == nil {
+				// Check the blockChainStore for the transaction
+				prevTx, err = e.bcs.GetTxByTxId(Symbol, txIn.TxId, false)
+				if err != nil && err != store.ErrNotFound {
+					e.logger.Errorw("Error on bcs.GetTxByTxId",
+						"tx_id", txIn.TxId,
+						"height", txIn.Height,
+						"blkheight", blk.Height,
+						"error", err,
+					)
+				} else if err == store.ErrNotFound {
+					// We didn't find the transaction, we're going to wait until the block this tx is part of finishes resolving
+					if waitForBlockInfo != nil {
+						<-waitForBlockInfo
+					}
+
+					// This block doesn't appear to be connected at this point, give up resolving it's inputs as there's likely too much missing data to be useful
+					if blk.Height == blocc.HeightUnknown {
+						skipResolvingPreviousOutpoints = true
+						continue
+					}
+
+					// Check the cache one more time, in case the transaction was in the same block
+					prevTx = <-e.btm.WaitForTxId(txIn.TxId, time.Millisecond)
+
+					if prevTx == nil {
+						// We missed finding it in the blockTxMonitor and the BlockChainStore
+						// Attempt to the flush the BlockChainStore transactions and look one last time
+						err = e.bcs.FlushTransactions(Symbol)
+						// Try to fetch the transaction again
+						prevTx, err = e.bcs.GetTxByTxId(Symbol, txIn.TxId, false)
+						if err != nil && err != store.ErrNotFound {
+							e.logger.Errorw("Error on bcs.GetTxByTxId",
+								"tx_id", txIn.TxId,
+								"height", txIn.Height,
+								"blkheight", blk.Height,
+								"error", err,
+							)
+						}
+					}
+				}
+			}
+			// We never found the previous transaction, this is a problem
+			if prevTx == nil {
+				e.logger.Warnw("PreviousOutPoint missing",
+					"tx_id", txIn.TxId,
+					"height", txIn.Height,
+					"blkheight", blk.Height,
+				)
+			} else {
+				if int64(len(prevTx.Out)) > txIn.Height {
+					txIn.Out = prevTx.Out[txIn.Height]
+				} else {
+					e.logger.Warnw("PreviousOutPoint missing transaction",
+						"tx_id", txIn.TxId,
+						"height", txIn.Height,
+						"blkheight", blk.Height,
+					)
+				}
+			}
+		}
+	}
 
 	// If this transaction came as part of a block, add block metadata
 	if blk != nil {
+
+		// Wait until the block information is ready to read
+		if waitForBlockInfo != nil {
+			<-waitForBlockInfo
+		}
+
 		tx.BlockId = blk.BlockId
 		tx.BlockHeight = blk.Height
 		tx.Time = blk.Time
@@ -225,9 +281,6 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx) 
 
 		// Insert it into the BlockChainStore but only if we know of it as part of the chain
 		if e.bcs != nil && blk.Height != blocc.HeightUnknown {
-			// Add this transaction to the BlockTxMonitor
-			e.btm.AddTx(tx, time.Now().Add(3*time.Minute))
-
 			err := e.bcs.InsertTransaction(Symbol, tx)
 			if err != nil {
 				e.logger.Errorw("Could not BlockStore InsertTransaction", "error", err)
