@@ -270,10 +270,8 @@ func (e *Extractor) fetchBlockChain() {
 		case blk := <-e.btm.WaitForBlockHeight(expectedLastHeight, config.GetDuration("extractor.btc.blocks_request_timeout")):
 			close(blockTimeout)
 			if blk == nil {
-				e.Lock()
 				e.logger.Errorw("Did not get block when following blockchain", "height", expectedLastHeight)
 				e.logger.Warnw("Continuing block extraction after timeout", "block_id", e.getValidBlockId(), "block_height", e.getValidBlockHeight())
-				e.Unlock()
 				continue
 			} else {
 				e.logger.Infow("Block Chain Stats",
@@ -285,9 +283,7 @@ func (e *Extractor) fetchBlockChain() {
 				)
 			}
 		case <-blockTimeout:
-			e.Lock()
 			e.logger.Errorw("Block timeout", "block_id", e.getValidBlockId(), "block_height", e.getValidBlockHeight(), "expected_height", expectedLastHeight)
-			e.Unlock()
 
 			// We're exiting
 		case <-conf.Stop.Chan():
