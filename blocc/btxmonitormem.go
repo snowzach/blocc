@@ -5,31 +5,34 @@ import (
 	"time"
 )
 
-type BlockTxMonitorMemBlock struct {
-	block   *Block
+type blockHeaderTxMonitorMemBlockHeader struct {
+	bh      *BlockHeader
 	wait    chan struct{}
 	expires time.Time
 }
 
-type BlockTxMonitorMemTx struct {
+type blockHeaderTxMonitorMemTx struct {
 	tx      *Tx
 	wait    chan struct{}
 	expires time.Time
 }
 
-type BlockTxMonitorMem struct {
-	byBlockId     map[string]*BlockTxMonitorMemBlock
-	byBlockHeight map[int64]*BlockTxMonitorMemBlock
-	byTxId        map[string]*BlockTxMonitorMemTx
+type blockHeaderTxMonitorMem struct {
+	byBlockId            map[string]*blockHeaderTxMonitorMemBlockHeader
+	byBlockHeight        map[int64]*blockHeaderTxMonitorMemBlockHeader
+	byTxId               map[string]*blockHeaderTxMonitorMemTx
+	lastBHWithHeightTime time.Time
 	sync.Mutex
 }
 
-func NewBlockTxMonitorMem() *BlockTxMonitorMem {
+// NewBlockHeaderTxMonitorMem returns a tool for monitoring BlockHeader and Transactions as they come in.
+// It allows them to wait for them as they are processed
+func NewBlockHeaderTxMonitorMem() *blockHeaderTxMonitorMem {
 
-	btm := &BlockTxMonitorMem{
-		byBlockId:     make(map[string]*BlockTxMonitorMemBlock),
-		byBlockHeight: make(map[int64]*BlockTxMonitorMemBlock),
-		byTxId:        make(map[string]*BlockTxMonitorMemTx),
+	btm := &blockHeaderTxMonitorMem{
+		byBlockId:     make(map[string]*blockHeaderTxMonitorMemBlockHeader),
+		byBlockHeight: make(map[int64]*blockHeaderTxMonitorMemBlockHeader),
+		byTxId:        make(map[string]*blockHeaderTxMonitorMemTx),
 	}
 
 	// Expire anything waiting
@@ -90,7 +93,8 @@ func closeIfOpen(c chan struct{}) {
 	}
 }
 
-func (btm *BlockTxMonitorMem) AddBlock(block *Block, expires time.Time) {
+// AddBlockHeader to the monitor
+func (btm *blockHeaderTxMonitorMem) AddBlockHeader(bh *BlockHeader, expires time.Duration) {
 	btm.Lock()
 	defer btm.Unlock()
 
@@ -99,47 +103,52 @@ func (btm *BlockTxMonitorMem) AddBlock(block *Block, expires time.Time) {
 		return
 	}
 
+	if bh.Height != HeightUnknown {
+		btm.lastBHWithHeightTime = time.Now()
+	}
+
 	// Do we have someone already waiting
-	if b, ok := btm.byBlockId[block.BlockId]; ok {
+	if b, ok := btm.byBlockId[bh.BlockId]; ok {
 		// Save the block
-		b.block = block
-		b.expires = expires
+		b.bh = bh
+		b.expires = time.Now().Add(expires)
 		// Signal waiters
 		closeIfOpen(b.wait)
 	} else {
 		// We don't, create a record
-		b := &BlockTxMonitorMemBlock{
-			block:   block,
+		b := &blockHeaderTxMonitorMemBlockHeader{
+			bh:      bh,
 			wait:    make(chan struct{}),
-			expires: expires,
+			expires: time.Now().Add(expires),
 		}
 		close(b.wait) // Close the wait channel
-		btm.byBlockId[block.BlockId] = b
+		btm.byBlockId[bh.BlockId] = b
 	}
 
 	// We have a block height
-	if block.Height >= 0 {
+	if bh.Height >= 0 {
 		// Are there any waiters
-		if b, ok := btm.byBlockHeight[block.Height]; ok {
+		if b, ok := btm.byBlockHeight[bh.Height]; ok {
 			// Save the block
-			b.block = block
-			b.expires = expires
+			b.bh = bh
+			b.expires = time.Now().Add(expires)
 			// Signal waiters
 			closeIfOpen(b.wait)
 		} else {
-			b := &BlockTxMonitorMemBlock{
-				block:   block,
+			b := &blockHeaderTxMonitorMemBlockHeader{
+				bh:      bh,
 				wait:    make(chan struct{}),
-				expires: expires,
+				expires: time.Now().Add(expires),
 			}
 			close(b.wait) // Close the wait channel
-			btm.byBlockHeight[block.Height] = b
+			btm.byBlockHeight[bh.Height] = b
 		}
 	}
 
 }
 
-func (btm *BlockTxMonitorMem) AddTx(tx *Tx, expires time.Time) {
+// AddTx to the monitor
+func (btm *blockHeaderTxMonitorMem) AddTx(tx *Tx, expires time.Duration) {
 	btm.Lock()
 	defer btm.Unlock()
 
@@ -152,25 +161,25 @@ func (btm *BlockTxMonitorMem) AddTx(tx *Tx, expires time.Time) {
 	if t, ok := btm.byTxId[tx.TxId]; ok {
 		// Record tx
 		t.tx = tx
-		t.expires = expires
+		t.expires = time.Now().Add(expires)
 		// Signal Waiters
 		closeIfOpen(t.wait)
 	} else {
-		t := &BlockTxMonitorMemTx{
+		t := &blockHeaderTxMonitorMemTx{
 			tx:      tx,
 			wait:    make(chan struct{}),
-			expires: expires,
+			expires: time.Now().Add(expires),
 		}
 		close(t.wait) // Close the wait channel
 		btm.byTxId[tx.TxId] = t
 	}
 }
 
-// Wait for the block id
-func (btm *BlockTxMonitorMem) WaitForBlockId(blockId string, timeout time.Duration) <-chan *Block {
+// WaitForBlockId uses the monitor to wait for a Block by Id with a timeout
+func (btm *blockHeaderTxMonitorMem) WaitForBlockId(blockId string, timeout time.Duration) <-chan *BlockHeader {
 	btm.Lock()
 
-	c := make(chan *Block, 1)
+	c := make(chan *BlockHeader, 1)
 
 	// If shutdown
 	if btm.byBlockId == nil {
@@ -182,9 +191,17 @@ func (btm *BlockTxMonitorMem) WaitForBlockId(blockId string, timeout time.Durati
 	// Do we have this block
 	b, ok := btm.byBlockId[blockId]
 	if !ok {
+
+		// We don't have it, no wait requested, return
+		if timeout == 0 {
+			btm.Unlock()
+			close(c)
+			return c
+		}
+
 		// We, don't, create a new one
-		b = &BlockTxMonitorMemBlock{
-			block:   nil,
+		b = &blockHeaderTxMonitorMemBlockHeader{
+			bh:      nil,
 			wait:    make(chan struct{}),
 			expires: time.Now().Add(timeout + (5 * time.Second)), // Make it timeout a little after the actual timeout
 		}
@@ -197,10 +214,11 @@ func (btm *BlockTxMonitorMem) WaitForBlockId(blockId string, timeout time.Durati
 		select {
 		// We got the block or it expired
 		case <-b.wait:
-			c <- b.block
+			c <- b.bh
+			close(c)
 		// We timed out
 		case <-time.After(timeout):
-			c <- nil
+			close(c)
 		}
 	}()
 
@@ -208,11 +226,11 @@ func (btm *BlockTxMonitorMem) WaitForBlockId(blockId string, timeout time.Durati
 
 }
 
-// Wait for the block height
-func (btm *BlockTxMonitorMem) WaitForBlockHeight(blockHeight int64, timeout time.Duration) <-chan *Block {
+// WaitForBlockHeight uses the monitor to wait for a Block by height with a timeout
+func (btm *blockHeaderTxMonitorMem) WaitForBlockHeight(blockHeight int64, timeout time.Duration) <-chan *BlockHeader {
 	btm.Lock()
 
-	c := make(chan *Block, 1)
+	c := make(chan *BlockHeader, 1)
 
 	// If shutdown
 	if btm.byBlockHeight == nil {
@@ -224,9 +242,17 @@ func (btm *BlockTxMonitorMem) WaitForBlockHeight(blockHeight int64, timeout time
 	// Do we have this block
 	b, ok := btm.byBlockHeight[blockHeight]
 	if !ok {
+
+		// We don't have it, no wait requested, return
+		if timeout == 0 {
+			btm.Unlock()
+			close(c)
+			return c
+		}
+
 		// We, don't, create a new one
-		b = &BlockTxMonitorMemBlock{
-			block:   nil,
+		b = &blockHeaderTxMonitorMemBlockHeader{
+			bh:      nil,
 			wait:    make(chan struct{}),
 			expires: time.Now().Add(timeout + (5 * time.Second)), // Make it timeout a little after the actual timeout
 		}
@@ -239,10 +265,11 @@ func (btm *BlockTxMonitorMem) WaitForBlockHeight(blockHeight int64, timeout time
 		select {
 		// We got the block or it expired
 		case <-b.wait:
-			c <- b.block
+			c <- b.bh
+			close(c)
 		// It timed out
 		case <-time.After(timeout):
-			c <- nil
+			close(c)
 		}
 	}()
 
@@ -250,8 +277,8 @@ func (btm *BlockTxMonitorMem) WaitForBlockHeight(blockHeight int64, timeout time
 
 }
 
-// Wait for the txId
-func (btm *BlockTxMonitorMem) WaitForTxId(txId string, timeout time.Duration) <-chan *Tx {
+// WaitForTxId uses the monitor to wait for a transaction by Id with a timeout
+func (btm *blockHeaderTxMonitorMem) WaitForTxId(txId string, timeout time.Duration) <-chan *Tx {
 
 	btm.Lock()
 
@@ -264,16 +291,32 @@ func (btm *BlockTxMonitorMem) WaitForTxId(txId string, timeout time.Duration) <-
 		return c
 	}
 
-	// Do we have this block
+	// Do we have this tx
 	t, ok := btm.byTxId[txId]
 	if !ok {
+
+		// We don't have it, no wait requested, return
+		if timeout == 0 {
+			btm.Unlock()
+			close(c)
+			return c
+		}
+
 		// We, don't, create a new one
-		t = &BlockTxMonitorMemTx{
+		t = &blockHeaderTxMonitorMemTx{
 			tx:      nil,
 			wait:    make(chan struct{}),
 			expires: time.Now().Add(timeout + (5 * time.Second)), // Make it timeout a little after the actual timeout
 		}
 		btm.byTxId[txId] = t
+	}
+
+	// Return it if we have it or not
+	if timeout == 0 {
+		c <- t.tx
+		close(c)
+		btm.Unlock()
+		return c
 	}
 
 	btm.Unlock()
@@ -282,6 +325,7 @@ func (btm *BlockTxMonitorMem) WaitForTxId(txId string, timeout time.Duration) <-
 	// We got the tx or it expired
 	case <-t.wait:
 		c <- t.tx
+		close(c)
 	// It timed out
 	case <-time.After(timeout):
 		c <- nil
@@ -291,21 +335,57 @@ func (btm *BlockTxMonitorMem) WaitForTxId(txId string, timeout time.Duration) <-
 
 }
 
-func (btm *BlockTxMonitorMem) ExpireBelowBlockHeight(blockHeight int64) {
+// ExpireBlockHeadersBelowBlockHeight removes any block headers from the monitor below a height
+func (btm *blockHeaderTxMonitorMem) ExpireBlockHeadersBelowBlockHeight(blockHeight int64) {
 	btm.Lock()
 	defer btm.Unlock()
 	for bh, b := range btm.byBlockHeight {
-		if bh < blockHeight {
+		if bh < blockHeight && bh != HeightUnknown {
 			closeIfOpen(b.wait)
 			delete(btm.byBlockHeight, bh)
-			if b.block != nil {
-				delete(btm.byBlockId, b.block.BlockId)
+			if b.bh != nil {
+				delete(btm.byBlockId, b.bh.BlockId)
 			}
 		}
 	}
 }
 
-func (btm *BlockTxMonitorMem) Shutdown() {
+// ExpireBlockHeadersBelowBlockHeight removes any block headers from the monitor above a height
+func (btm *blockHeaderTxMonitorMem) ExpireBlockHeadersAboveBlockHeight(blockHeight int64) {
+	btm.Lock()
+	defer btm.Unlock()
+	for bh, b := range btm.byBlockHeight {
+		if bh > blockHeight {
+			closeIfOpen(b.wait)
+			delete(btm.byBlockHeight, bh)
+			if b.bh != nil {
+				delete(btm.byBlockId, b.bh.BlockId)
+			}
+		}
+	}
+}
+
+// ExpireBlockHeadersHeightUnknown will remove any blocks with unknown height
+func (btm *blockHeaderTxMonitorMem) ExpireBlockHeadersHeightUnknown() {
+	btm.Lock()
+	defer btm.Unlock()
+	for blockId, b := range btm.byBlockId {
+		if b.bh != nil && b.bh.Height == HeightUnknown {
+			closeIfOpen(b.wait)
+			delete(btm.byBlockId, blockId)
+		}
+	}
+}
+
+// LastBlockHeaderWithHeightTime returns the time the last block header was added
+func (btm *blockHeaderTxMonitorMem) LastBlockHeaderWithHeightTime() time.Time {
+	btm.Lock()
+	defer btm.Unlock()
+	return btm.lastBHWithHeightTime
+}
+
+// Shutdown shuts down the monitor
+func (btm *blockHeaderTxMonitorMem) Shutdown() {
 	btm.Lock()
 	defer btm.Unlock()
 	for h, b := range btm.byBlockHeight {

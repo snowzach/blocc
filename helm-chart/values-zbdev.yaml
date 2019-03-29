@@ -1,0 +1,19 @@
+
+elasticsearch:
+  host: 192.168.3.12
+  sniff: false
+
+redis:
+  host: 192.168.3.12
+
+extractor:
+  btc:
+    host: 192.168.3.12
+
+image:
+  tag: wip
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 8080

@@ -80,3 +80,8 @@ func (c *client) DelPattern(pattern string) error {
 	}
 	return nil
 }
+
+// Init will clear the cache of any existing records
+func (c *client) Init(symbol string) error {
+	return c.DelPattern(c.symPrefix(symbol) + "*")
+}

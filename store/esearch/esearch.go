@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/olivere/elastic"
@@ -33,7 +35,12 @@ type esearch struct {
 	indexBlockById   bool
 	indexTxById      bool
 
-	index string
+	index    string
+	countMax int
+
+	lastBulkError error
+
+	sync.Mutex
 }
 
 // NewES creates a connection to Elasticsearch to interact with, it can (and should) use a DistCache to overcome the Refresh interval
@@ -48,7 +55,8 @@ func New() (*esearch, error) {
 		indexBlockById: true,
 		indexTxById:    true,
 
-		index: config.GetString("elasticsearch.index"),
+		index:    config.GetString("elasticsearch.index"),
+		countMax: config.GetInt("elasticsearch.count_max"),
 	}
 
 	if config.GetString("elasticsearch.host") != "" && config.GetString("elasticsearch.port") != "" {
@@ -61,7 +69,15 @@ func New() (*esearch, error) {
 	esOptions := []elastic.ClientOptionFunc{
 		elastic.SetErrorLog(&errorLogger{logger: e.logger}),
 		elastic.SetURL(e.url),
-		elastic.SetHealthcheckTimeout(config.GetDuration("elasticsearch.healthcheck_timeout")),
+		elastic.SetHttpClient(&http.Client{Timeout: config.GetDuration("elasticsearch.request_timeout")}),
+	}
+	if config.GetDuration("elasticsearch.healthcheck_timeout") != 0 {
+		esOptions = append(esOptions,
+			elastic.SetHealthcheck(true),
+			elastic.SetHealthcheckTimeout(config.GetDuration("elasticsearch.healthcheck_timeout")),
+		)
+	} else {
+		esOptions = append(esOptions, elastic.SetHealthcheck(false))
 	}
 	if config.GetBool("elasticsearch.request_log") {
 		esOptions = append(esOptions, elastic.SetInfoLog(&infoLogger{logger: e.logger}))
@@ -80,7 +96,6 @@ func New() (*esearch, error) {
 				return true
 			}),
 		)
-
 	} else {
 		esOptions = append(esOptions, elastic.SetSniff(false))
 	}
@@ -93,7 +108,7 @@ func New() (*esearch, error) {
 			if strings.Contains(err.Error(), "connection refused") {
 				e.logger.Warnw("Connection to elasticsearch timed out. Sleeping and retry.",
 					"host", config.GetString("elasticsearch.host"),
-					"port", config.GetString("elasticsearch.post"),
+					"port", config.GetString("elasticsearch.port"),
 				)
 				time.Sleep(config.GetDuration("elasticsearch.sleep_between_retries"))
 				continue
@@ -142,11 +157,11 @@ func New() (*esearch, error) {
 		}
 	}
 
-	// Start up the bulk processor
+	// Start up the bulk processor - defaults to 5MB and flush interval
 	e.bulk, err = e.client.BulkProcessor().
 		Name("bulk").
 		BulkActions(-1).
-		FlushInterval(5 * time.Second).
+		FlushInterval(config.GetDuration("elasticsearch.bulk_flush_interval")).
 		Workers(config.GetInt("elasticsearch.bulk_workers")).
 		Stats(config.GetBool("elasticsearch.bulk_stats")).
 		After(e.bulkAfter).
@@ -292,8 +307,11 @@ func parseElasticError(err error) error {
 
 // Check for errors in bulk requests
 func (e *esearch) bulkAfter(executionId int64, requests []elastic.BulkableRequest, response *elastic.BulkResponse, err error) {
+	e.Lock()
+	defer e.Unlock()
 	if err != nil {
 		e.logger.Errorw("Bulk Error", "error", err)
+		e.lastBulkError = fmt.Errorf("General bulk error: %v", err)
 		return
 	}
 	if response.Errors {
@@ -302,10 +320,10 @@ func (e *esearch) bulkAfter(executionId int64, requests []elastic.BulkableReques
 				if op.Error != nil {
 					e.logger.Errorw("Bulk Item Error",
 						"index", op.Index,
-						"op", op,
 						"reason", op.Error.Reason,
 						"caused_by", op.Error.CausedBy,
 					)
+					e.lastBulkError = fmt.Errorf("Bulk Error index:%s reason:%s caused_by:%s", op.Index, op.Error.Reason, op.Error.CausedBy)
 				}
 			}
 		}

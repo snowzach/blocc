@@ -13,10 +13,10 @@ import (
 func TestVersionGet(t *testing.T) {
 
 	// Mock Store and server
-	dc := new(mocks.DistCache)
-	txp := new(mocks.TxPool)
+	bcs := new(mocks.BlockChainStore)
 	txb := new(mocks.TxBus)
-	s, err := New(dc, txp, txb)
+	dc := new(mocks.DistCache)
+	s, err := New(bcs, txb, dc)
 	assert.Nil(t, err)
 
 	response, err := s.Version(context.Background(), nil)
@@ -24,8 +24,8 @@ func TestVersionGet(t *testing.T) {
 	assert.Equal(t, conf.GitVersion, response.Version)
 
 	// Check remaining expectations
-	dc.AssertExpectations(t)
-	txp.AssertExpectations(t)
+	bcs.AssertExpectations(t)
 	txb.AssertExpectations(t)
+	dc.AssertExpectations(t)
 
 }

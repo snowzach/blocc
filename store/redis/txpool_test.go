@@ -25,23 +25,21 @@ func TestInsertTransaction(t *testing.T) {
 
 	symbol := "sym"
 	tx := &blocc.Tx{
-		Type:      "tx",
 		Symbol:    "sym",
 		BlockId:   "12345",
 		TxId:      "67890",
 		Height:    42,
+		TxSize:    123,
 		Time:      time.Now().UTC().Unix(),
 		BlockTime: time.Now().UTC().Unix(),
-		Addresses: []string{"abcd", "efgh"},
 		Raw:       []byte("asdfasdfasdfasdf"),
 		Data: map[string]string{
 			"metric": "value1",
 			"tag":    "tag1",
-			"size":   "123",
 		},
 	}
 
-	r.On("Set", c.symPrefix(symbol)+tx.TxId, tx.Data["size"], mock.AnythingOfType("time.Duration")).Once().Return(redis.NewStatusResult("OK", nil))
+	r.On("Set", c.symPrefix(symbol)+tx.TxId, tx.TxSize, mock.AnythingOfType("time.Duration")).Once().Return(redis.NewStatusResult("OK", nil))
 	assert.Nil(t, c.InsertTransaction(symbol, tx, time.Minute))
 
 	r.AssertExpectations(t)
