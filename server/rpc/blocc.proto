@@ -1,0 +1,194 @@
+syntax="proto3";
+package rpc;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
+import "google/api/annotations.proto";
+import "blocc/block.proto";
+
+option go_package = "git.coinninja.net/backend/blocc/server/rpc";
+
+service BloccRPC {
+
+    // Get Block by Id
+    rpc GetBlock(Get) returns (blocc.Block) {
+        option (google.api.http) = {
+            get: "/blocks/{id}"
+            additional_bindings: {
+                get: "/{symbol}/blocks/{id}"
+            }
+        };
+    }
+
+    // Find Blocks by BlockIds and/or Time
+    rpc FindBlocks(Find) returns (Blocks) {
+        option (google.api.http) = {
+            post: "/blocks"
+            body: "*"
+            additional_bindings: {
+                post: "/{symbol}/blocks"
+                body: "*"
+            }
+            additional_bindings: {
+                get: "/blocks"
+            }
+            additional_bindings: {
+                get: "/{symbol}/blocks"
+            }
+        };
+    }
+
+    // Get Transaction by TxId
+    rpc GetTransaction(Get) returns (blocc.Tx) {
+        option (google.api.http) = {
+            get: "/transactions/{id}"
+            additional_bindings: {
+                get: "/{symbol}/transactions/{id}"
+            }
+            additional_bindings: {
+                get: "/tx/{id}"
+            }
+            additional_bindings: {
+                get: "/{symbol}/tx/{id}"
+            }
+        };
+    }
+
+    // Find transactions by TxId and/or Time
+    rpc FindTransactions(Find) returns (Transactions) {
+        option (google.api.http) = {
+            post: "/transactions"
+            body: "*"
+            additional_bindings: {
+                post: "/{symbol}/transactions"
+                body: "*"
+            }
+            additional_bindings: {
+                get: "/transactions"
+            }
+            additional_bindings: {
+                get: "/{symbol}/transactions"
+            }
+            additional_bindings: {
+                post: "/tx"
+                body: "*"
+            }
+            additional_bindings: {
+                post: "/{symbol}/tx"
+                body: "*"
+            }
+            additional_bindings: {
+                get: "/tx"
+            }
+            additional_bindings: {
+                get: "/{symbol}/tx"
+            }
+        };
+    }
+
+    // Find transactions by Address and/or Time
+    rpc FindTransactionsByAddresses(Find) returns (Transactions) {
+        option (google.api.http) = {
+            post: "/addresses"
+            body: "*"
+            additional_bindings: {
+                post: "/{symbol}/addresses"
+                body: "*"
+            }
+            additional_bindings: {
+                get: "/addresses/{ids}"
+            }
+            additional_bindings: {
+                get: "/{symbol}/addresses/{ids}"
+            }
+        };
+    }
+
+    // Get MemPool Stats
+    rpc GetMemPoolStats(Symbol) returns (MemPoolStats) {
+        option (google.api.http) = {
+            get: "/mempool/stats"
+        };
+    }
+
+    // Get Transaction Stream
+    rpc GetMemPoolStream(Symbol) returns (stream blocc.Tx) {
+        option (google.api.http) = {
+            get: "/mempool/stream"
+        };
+    }
+
+
+}
+
+// Symbol
+message Symbol {
+    // The coin symbol (default: btc)
+    string symbol = 1;
+}
+
+// Get
+message Get {
+    // The coin symbol (default: btc)
+    string symbol = 1;
+    // The Id to get
+    string id = 2;
+    
+    // Extra flags for including fields
+    // Bitmask of fields to include (1=header)
+    int32 include = 99; 
+    // Include the data object
+    bool data = 100;
+    // Include the raw tx or block in base64
+    bool raw  = 101;
+    // Include transaction ids in block
+    bool tx   = 102;
+
+}
+
+// Find
+message Find {
+    // The coin symbol (default: btc)
+    string symbol = 1;
+    repeated string ids = 2;
+    // The start time to search from (unix timestamp)
+    int64 start_time = 3;
+    // The end time to search to (unix timestamp)
+    int64 end_time = 4;
+    // The offset of results to start from
+    int64 offset = 5;
+    // The number of results to return
+    int64 count = 6;
+
+    // Extra flags for including fields
+    // Sepecific values
+    int32 include = 99; 
+    // Include the data object
+    bool data = 100;
+    // Include the raw tx or block in base64
+    bool raw  = 101;
+    // Include transaction ids in block
+    bool tx   = 102;
+}
+
+// Blocks
+message Blocks {
+    // Blocks
+    repeated blocc.Block blocks = 1;
+}
+
+// Transactions
+message Transactions {
+    // Transactions
+    repeated blocc.Tx transactions = 1;
+}
+
+// MemPoolStats
+message MemPoolStats {
+    // The timestamp
+    int64 time = 1;
+    // The count of transactions
+    int64 count = 2;
+    // The mempool size
+    int64 size = 3 [(gogoproto.customname) = "MPSize"];; 
+}

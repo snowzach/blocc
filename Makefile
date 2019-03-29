@@ -13,9 +13,12 @@ TOOLS := ${GOPATH}/bin/go-bindata \
 	${GOPATH}/bin/protoc-gen-swagger
 export PROTOBUF_INCLUDES = -I. -I/usr/include -I${GOPATH}/src -I$(shell go list -e -f '{{.Dir}}' .) -I$(shell go list -e -f '{{.Dir}}' github.com/grpc-ecosystem/grpc-gateway/runtime)/../third_party/googleapis
 PROTOS := ./blocc/block.pb.go \
-	./server/rpc/mempool.pb.gw.go \
-	./server/rpc/btc.pb.gw.go \
-	./server/rpc/version.pb.gw.go
+	./server/rpc/version.pb.gw.go \
+	./server/rpc/blocc.pb.gw.go
+SWAGGERDOCS = 	./server/rpc/version.swagger.json \
+				./server/rpc/blocc.swagger.json
+SWAGGER_VERSION = 3.20.8
+
 
 .PHONY: default
 default: ${EXECUTABLE}
@@ -49,17 +52,18 @@ ${GOPATH}/bin/protoc-gen-swagger:
 %.pb.go: %.proto
 	protoc ${PROTOBUF_INCLUDES} --gogoslick_out=paths=source_relative,plugins=grpc:. $*.proto
 
-${EMBEDDIR}/bindata.go: ${EMBED}
+${EMBEDDIR}/bindata.go: ${EMBED} ${SWAGGERDOCS} embed/public/swagger-ui/index.html
+	# Copying swagger docs
+	mkdir -p embed/public/api-docs
+	cp $(SWAGGERDOCS) embed/public/api-docs
 	# Building bindata
-	go-bindata -o ${EMBEDDIR}/bindata.go -prefix ${EMBEDDIR} -pkg embed ${EMBED}
+	go-bindata -o ${EMBEDDIR}/bindata.go -prefix ${EMBEDDIR} -pkg embed ${EMBED} embed/public/...
 
 mocks: tools
 	mockery -dir ./blocc -name BlockChainStore
-	mockery -dir ./blocc -name TxPool
+	mockery -dir ./blocc -name ValidBlockStore
 	mockery -dir ./blocc -name TxBus
 	mockery -dir ./blocc -name TxChannel
-	mockery -dir ./blocc -name MetricStore
-	mockery -dir ./blocc -name BlockMonitor
 	mockery -dir ./store -name DistCache
 	mockery -dir $(shell go list -e -f '{{.Dir}}' github.com/go-redis/redis) -name UniversalClient
 
@@ -76,3 +80,11 @@ test: tools ${PROTOS} ${EMBEDDIR}/bindata.go mocks
 deps:
 	# Fetching dependancies...
 	go get -d -v # Adding -u here will break CI
+
+embed/public/swagger-ui/index.html:
+	# Downloading Swagger UI
+	mkdir -p embed/public/swagger-ui
+	curl -L https://github.com/swagger-api/swagger-ui/archive/v${SWAGGER_VERSION}.tar.gz | tar zx --strip-components 2 -C embed/public/swagger-ui swagger-ui-${SWAGGER_VERSION}/dist
+
+clean:
+	go clean -modcache

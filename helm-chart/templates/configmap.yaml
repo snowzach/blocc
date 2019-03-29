@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "name" . }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ template "name" . }}
+    chart: {{ template "chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+data:
+  LOGGER_LEVEL: {{ .Values.loggerLevel | quote }}
+  PROFILER_ENABLED: {{ .Values.profiler.enabled | quote }}
+  PROFILER_PORT: {{ .Values.profiler.port | quote }}
+  ELASTICSEARCH_DEBUG: {{ .Values.elasticsearch.debug | quote }}
+  ELASTICSEARCH_HOST: {{ .Values.elasticsearch.host | quote }}
+  ELASTICSEARCH_PORT: {{ .Values.elasticsearch.port | quote }}
+  ELASTICSEARCH_SNIFF: {{ .Values.elasticsearch.sniff | quote }}
+  ELASTICSEARCH_INDEX: {{ .Values.elasticsearch.index | quote }}
+  ELASTICSEARCH_REQUEST_TIMEOUT: {{ .Values.elasticsearch.requestTimeout | quote }}
+  ELASTICSEARCH_THROTTLE_SEARCHES: {{ .Values.elasticsearch.throttleSearches | quote }}
+  ELASTICSEARCH_BULK_FLUSH_INTERVAL: {{ .Values.elasticsearch.bulkFlushInterval | quote }}
+  ELASTICSEARCH_BULK_WORKERS: {{ .Values.elasticsearch.bulkWorkers | quote }}
+  REDIS_HOST: {{ .Values.redis.host | quote }}
+  REDIS_PORT: {{ .Values.redis.port | quote }}
+  REDIS_MASTER_NAME: {{ .Values.redis.masterName | quote }}
+  REDIS_PASSWORD: {{ .Values.redis.password | quote }}
+  REDIS_INDEX: {{ .Values.redis.index | quote }}
+  EXTRACTOR_BTC_HOST: {{ .Values.extractor.btc.host | quote }}
+  EXTRACTOR_BTC_PORT: {{ .Values.extractor.btc.port | quote }}
+  EXTRACTOR_BTC_CHAIN: {{ .Values.extractor.btc.chain | quote }}
+  EXTRACTOR_BTC_DEBUG: {{ .Values.extractor.btc.debug | quote }}
+  EXTRACTOR_BTC_BLOCK_CONCURRENT: {{ .Values.extractor.btc.block.concurrent | quote }}
+  EXTRACTOR_BTC_BLOCK_HEADERS_REQUEST_COUNT: {{ .Values.extractor.btc.block.headersRequestCount | quote }}
+  EXTRACTOR_BTC_BLOCK_REQUEST_COUNT: {{ .Values.extractor.btc.block.requestCount | quote }}

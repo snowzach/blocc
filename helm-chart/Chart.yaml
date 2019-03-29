@@ -1,0 +1,8 @@
+description: Blocc
+home: https://git.coinninja.net/backend/blocc
+name: blocc
+version: 1.0.0
+appVersion: 1.0.0
+sources:
+  - https://git.coinninja.net/backend/blocc
+

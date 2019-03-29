@@ -1,13 +1,12 @@
 package store
 
 import (
-	"errors"
 	"time"
 )
 
-// ErrNotFound is a standard no found error
-var (
-	ErrNotFound = errors.New("Not Found")
+const (
+	// Used by things that have offset/count to indicate we want as much as we can get
+	CountMax = -1
 )
 
 type DistCache interface {

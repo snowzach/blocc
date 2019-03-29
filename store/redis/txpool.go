@@ -13,19 +13,10 @@ const (
 	TxSizeScript  = `local size=0; for _,k in ipairs(redis.call('KEYS',ARGV[1])) do size=size+tonumber(redis.call('GET',k)) end; return size`
 )
 
-// Init will clear the cache of any existing records
-func (c *client) Init(symbol string) error {
-	return c.DelPattern(c.symPrefix(symbol) + "*")
-}
-
 // InsertTransaction will add a transaction
 func (c *client) InsertTransaction(symbol string, tx *blocc.Tx, expire time.Duration) error {
 	// Currently all we care about is size
-	size, ok := tx.Data["size"]
-	if !ok {
-		size = "0"
-	}
-	return c.client.Set(c.symPrefix(symbol)+tx.TxId, size, expire).Err()
+	return c.client.Set(c.symPrefix(symbol)+tx.TxId, tx.TxSize, expire).Err()
 }
 
 // DeleteTransaction will remove a transaction
@@ -58,3 +49,15 @@ func (c *client) GetTransactionBytes(symbol string) (int64, error) {
 	}
 	return size, nil
 }
+
+// GetTransactionById will return the number of bytes in the transaction pool
+// func (c *client) GetTransactionById(symbol string, txId string) (*blocc.Tx, error) {
+// 	var tx = new(blocc.Tx)
+// 	err := c.client.Get(c.prefix + Delimeter + bucket + Delimeter + key).Scan(dest)
+// 	if err == redis.Nil {
+// 		return blocc.ErrNotFound
+// 	} else if err != nil {
+// 		return err
+// 	}
+// 		return tx, nil
+// }
