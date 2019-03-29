@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/go-redis/redis"
 	config "github.com/spf13/viper"
@@ -32,10 +33,12 @@ func New(prefixes ...string) (*client, error) {
 
 	// Initialize client
 	c.client = redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs:      []string{net.JoinHostPort(config.GetString("redis.host"), config.GetString("redis.port"))},
-		Password:   config.GetString("redis.password"),
-		DB:         config.GetInt("redis.index"),
-		MasterName: config.GetString("redis.master_name"),
+		Addrs:       []string{net.JoinHostPort(config.GetString("redis.host"), config.GetString("redis.port"))},
+		Password:    config.GetString("redis.password"),
+		DB:          config.GetInt("redis.index"),
+		MasterName:  config.GetString("redis.master_name"),
+		PoolSize:    1000,
+		PoolTimeout: 2 * time.Minute,
 	})
 	_, err := c.client.Ping().Result()
 	if err != nil {
@@ -43,6 +46,23 @@ func New(prefixes ...string) (*client, error) {
 	}
 
 	return c, nil
+
+}
+
+// Get a subprefix client of redis
+func (c *client) Prefix(prefixes ...string) *client {
+
+	newPrefix := c.prefix
+	if c.prefix != "" {
+		c.prefix += Delimeter
+	}
+	newPrefix += strings.Join(prefixes, Delimeter)
+
+	return &client{
+		logger: c.logger.With("prefix", newPrefix),
+		prefix: newPrefix,
+		client: c.client,
+	}
 
 }
 
@@ -59,4 +79,9 @@ func (c *client) DelPattern(pattern string) error {
 		return err
 	}
 	return nil
+}
+
+// Init will clear the cache of any existing records
+func (c *client) Init(symbol string) error {
+	return c.DelPattern(c.symPrefix(symbol) + "*")
 }

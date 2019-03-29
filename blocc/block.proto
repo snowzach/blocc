@@ -5,41 +5,135 @@ import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 
 option go_package = "git.coinninja.net/backend/blocc/blocc";
 
+// BlockInclude
+enum BlockInclude {
+    BlockIncludeDefault = 0;
+    BlockIncludeHeader  = 1;
+    BlockIncludeData    = 2;
+    BlockIncludeRaw     = 4;
+    BlockIncludeTxIds   = 8;
+}
+
+// TxInclude
+enum TxInclude {
+    TxIncludeDefault    = 0;
+    TxIncludeHeader     = 1;
+    TxIncludeData       = 2;
+    TxIncludeRaw        = 4;
+    TxIncludeIn         = 8;
+    TxIncludeOut        = 16;
+}
+
+// BlockHeader
+message BlockHeader {
+    option (gogoproto.goproto_stringer) = false;
+    // Symbol
+    string symbol = 1;
+    // Block Id
+    string block_id = 2;
+    // Block Height
+    int64 height = 3 [(gogoproto.jsontag) = "height"]; // Remove omitempty
+    // Previous Block Id
+    string prev_block_id = 4;
+    // Block Time (unix timestamp)
+    int64 time = 5;
+}
+
+// Block
 message Block {
-    string type = 1;
-    string symbol = 2;
-    string block_id = 3;
-    int64 height = 4 [(gogoproto.jsontag) = "height"];
-    string prev_block_id = 5;
+    option (gogoproto.goproto_stringer) = false;
+    // Symbol
+    string symbol = 1;
+    // Block Id
+    string block_id = 2;
+    // Block Height
+    int64 height = 3 [(gogoproto.jsontag) = "height"]; // Remove omitempty
+    // Previous Block Id
+    string prev_block_id = 4;
+    // Next Block Id - if it can be determined
+    string next_block_id = 5;
+    // Block Time (unix timestamp)
     int64 time = 6;
-    repeated string addresses = 8;
-    repeated string txids = 9;
-    bytes raw = 10 [(gogoproto.casttype) = "Raw"];
+    // Tx Count
+    int64 tx_count = 7;
+    // Size
+    int64 size = 8 [(gogoproto.customname) = "BlockSize"];
+    // Status
+    string status = 9;
+    // Transaction Ids
+    repeated string tx_ids = 10 [(gogoproto.jsontag) = "tx_id"];
 
-    map<string, string> data = 15;
+
+    // Raw Block Data (base64)
+    bytes raw = 13 [(gogoproto.casttype) = "Raw",(gogoproto.jsontag) = "raw,omitempty"];
+    // Block Misc Data
+    map<string, string> data = 14;
+    // Block Misc Metrics
+    map<string, double> metric = 15;
 }
 
+// Tx - Transaction
 message Tx {
-    string type = 1;
-    string symbol = 2;
-    string block_id = 3;
-    string tx_id = 4;
-    int64 height = 5 [(gogoproto.jsontag) = "height"];
-    int64 time = 6;
-    int64 block_time = 7;
-    repeated string addresses = 8;
-    bytes raw = 10 [(gogoproto.casttype) = "Raw"];
+    // Symbol
+    string symbol = 1;
+    // Block Id
+    string block_id = 2;
+    // Block Height
+    int64 block_height = 3 [(gogoproto.jsontag) = "block_height"]; // Remove omitempty
+    // Block Time
+    int64 block_time = 4;
+    // Transaction Id
+    string tx_id = 5;
+    // Transaction Height (in block)
+    int64 height = 6 [(gogoproto.jsontag) = "height"]; // Remove omitempty
+    // Transaction Time
+    int64 time = 7;
+    // Size
+    int64 size = 9 [(gogoproto.customname) = "TxSize"];
+    // Transaction Inputs
+    repeated TxIn in = 10;
+    // Transaction Outputs
+    repeated TxOut out = 11;
 
-    map<string, string> data = 15;
+    // Raw Transaction Data (base64)
+    bytes raw = 13 [(gogoproto.casttype) = "Raw",(gogoproto.jsontag) = "raw,omitempty"];
+    // Transaction Misc Data
+    map<string, string> data = 14;
+    // Transaction Misc Metric
+    map<string, double> metric = 15;
 }
 
-message Metric {
-    string type = 1;
-    string symbol = 2;
-    string block_id = 3;
-    string tx_id = 4;
-    int64 height = 5;
-    int64 time = 6;
+// TxIn - Transaction Input
+message TxIn {
+    // Input/Previous Output Transaction Id
+    string tx_id = 1;
+    // Input Transaction Height Within Previous Output
+    int64 height = 2 [(gogoproto.jsontag) = "height"]; // Remove omitempty
 
-    map<string, string> data = 15;
+    // The Output of the previous transaction
+    TxOut out = 3;
+
+    // Raw TxIn Data
+    bytes raw = 13 [(gogoproto.casttype) = "Raw",(gogoproto.jsontag) = "raw,omitempty"];
+    // Transaction Input Misc Data
+    map<string, string> data = 14;
+    // Transaction Input Misc Metrics
+    map<string, double> metric = 15;
+}
+
+// TxOut - Transaction Output
+message TxOut {
+    // The TrOut Type
+    string type = 1;
+    // Output addresses if they could be decoded
+    repeated string addresses = 2 [(gogoproto.jsontag) = "address"]; // Remove omitempty;
+    // The value of the transaction output
+    int64 value = 3;
+
+    // Raw TxOut Data (base64)
+    bytes raw = 13 [(gogoproto.casttype) = "Raw",(gogoproto.jsontag) = "raw,omitempty"];
+    // Transaction Output Misc Data
+    map<string, string> data = 14;
+    // Transaction Output Misc Metrics
+    map<string, double> metric = 15;
 }

@@ -1,0 +1,72 @@
+{
+  "settings": {
+    "index": {
+      "number_of_replicas": 0,
+      "number_of_shards": 10,
+      "refresh_interval": "15s",
+      "mapping.ignore_malformed": true
+    }
+  },
+  "mappings": {
+    "blocc": {
+      "dynamic_templates": [
+        {
+          "data": {
+            "match": "data.*",
+            "mapping": {
+              "index": false,
+              "norms": false,
+              "doc_values": false,
+              "fielddata": false,
+              "type": "keyword"
+            }
+          }
+        },
+        {
+          "metric": {
+            "match": "metric.*",
+            "mapping": {
+              "doc_values": false,
+              "fielddata": false,
+              "index": false,
+              "norms": false,
+              "type": "double"
+            }
+          }
+        },
+        {
+          "star_as_keyword": {
+            "match_mapping_type": "*",
+            "mapping": {
+              "type": "keyword",
+              "norms": false
+            }
+          }
+        }
+      ],
+      "properties": {
+        "height": {
+          "type": "long"
+        },
+        "time": {
+          "type": "long"
+        },
+        "tx_count": {
+          "type": "long"
+        },
+        "size": {
+          "type": "long"
+        },
+        "raw": {
+          "type": "binary"
+        },
+        "data": {
+          "type": "object"
+        },
+        "metric": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

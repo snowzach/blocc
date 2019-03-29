@@ -38,37 +38,43 @@ func init() {
 	config.SetDefault("server.rest.orig_names", true)
 	// Other options
 	config.SetDefault("server.default_symbol", "btc")
-
-	// Database Settings
-	config.SetDefault("storage.type", "postgres")
-	config.SetDefault("storage.username", "postgres")
-	config.SetDefault("storage.password", "password")
-	config.SetDefault("storage.host", "postgres")
-	config.SetDefault("storage.port", 5432)
-	config.SetDefault("storage.database", "gogrpcapi")
-	config.SetDefault("storage.sslmode", "disable")
-	config.SetDefault("storage.retries", 5)
-	config.SetDefault("storage.sleep_between_retries", "7s")
-	config.SetDefault("storage.max_connections", 80)
-	config.SetDefault("storage.wipe_confirm", false)
+	config.SetDefault("server.default_count", 20)
+	config.SetDefault("server.cache_duration", "7s")
+	// Legacy API Options
+	config.SetDefault("server.legacy.btc_avg_fee_as_min", true)
+	config.SetDefault("server.legacy.btc_min_fee_max", 100)
+	config.SetDefault("server.legacy.btc_avg_fee_max", 500)
+	config.SetDefault("server.legacy.btc_max_fee_max", -1)
 
 	// Set Defaults - Elasticsearch
-	config.SetDefault("elasticsearch.mapping_file", "") // Defaults to loading embedded mapping.json if not specified
 	config.SetDefault("elasticsearch.request_log", false)
 	config.SetDefault("elasticsearch.debug", false)
-	config.SetDefault("elasticsearch.sniff", true)
+	config.SetDefault("elasticsearch.sniff", false)
+	config.SetDefault("elasticsearch.healthcheck_timeout", "0s")
 	config.SetDefault("elasticsearch.host", "") // Override back to host when ready to use
 	config.SetDefault("elasticsearch.port", "9200")
 	config.SetDefault("elasticsearch.retries", 5)
 	config.SetDefault("elasticsearch.sleep_between_retries", "5s")
+	config.SetDefault("elasticsearch.count_max", 10000)
 	config.SetDefault("elasticsearch.index", "blocc")
-	config.SetDefault("elasticsearch.index_replicas", 0)
-	config.SetDefault("elasticsearch.index_shards", 5)
-	config.SetDefault("elasticsearch.refresh_interval", "30s")
-	config.SetDefault("elasticsearch.bulk_workers", 2)
+	config.SetDefault("elasticsearch.request_timeout", "12m")
+	config.SetDefault("elasticsearch.throttle_searches", 60)
+	config.SetDefault("elasticsearch.bulk_workers", 5)
+	config.SetDefault("elasticsearch.bulk_flush_interval", "5s")
 	config.SetDefault("elasticsearch.bulk_stats", false)
 	config.SetDefault("elasticsearch.bulk_stats_interval", "60s")
 	config.SetDefault("elasticsearch.wipe_confirm", false)
+
+	config.SetDefault("elasticsearch.block.template_file", "") // Defaults to loading embedded template-block.json if not specified
+	config.SetDefault("elasticsearch.block.index_shards", 10)
+	config.SetDefault("elasticsearch.block.index_replicas", 0)
+	config.SetDefault("elasticsearch.block.refresh_interval", "15s")
+	config.SetDefault("elasticsearch.tx.template_file", "") // Defaults to loading embedded template-tx.json if not specified
+	config.SetDefault("elasticsearch.tx.index_shards", 24)
+	config.SetDefault("elasticsearch.tx.index_replicas", 0)
+	config.SetDefault("elasticsearch.tx.refresh_interval", "15s")
+
+	config.SetDefault("elasticsearch.fix_aggregation_size", 5000)
 
 	// Redis Settings
 	config.SetDefault("redis.host", "redis")
@@ -81,15 +87,30 @@ func init() {
 	config.SetDefault("extractor.btc.host", "bitcoind")
 	config.SetDefault("extractor.btc.port", 8333)
 	config.SetDefault("extractor.btc.chain", "mainnet")
-	config.SetDefault("extractor.btc.debug_messages", false)
-	config.SetDefault("extractor.btc.blocks", false)
-	config.SetDefault("extractor.btc.transactions", false)
-	config.SetDefault("extractor.btc.start_block_id", "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
-	config.SetDefault("extractor.btc.start_block_height", 0)
-	config.SetDefault("extractor.btc.throttle_blocks", 500)
-	config.SetDefault("extractor.btc.throttle_transactions", 700)
-	config.SetDefault("extractor.btc.transaction_lifetime", "336h") // 14 days
-	config.SetDefault("extractor.btc.store_raw_blocks", false)
-	config.SetDefault("extractor.btc.store_raw_transactions", false)
+	config.SetDefault("extractor.btc.debug", false)
+
+	config.SetDefault("extractor.btc.block", false)
+	config.SetDefault("extractor.btc.block_concurrent", 30)
+	config.SetDefault("extractor.btc.block_store_raw", true)
+	config.SetDefault("extractor.btc.block_start_id", "0000000000000000000000000000000000000000000000000000000000000000")
+	config.SetDefault("extractor.btc.block_start_height", -1)
+	config.SetDefault("extractor.btc.block_headers_request_count", 2000)
+	config.SetDefault("extractor.btc.block_request_count", 500)
+	config.SetDefault("extractor.btc.block_request_timeout", "180m")
+	config.SetDefault("extractor.btc.block_timeout", "5m")
+	config.SetDefault("extractor.btc.block_validation_interval", "10m")
+	config.SetDefault("extractor.btc.block_validation_height_delta", 100)
+	config.SetDefault("extractor.btc.block_validation_height_holdoff", 10)
+
+	config.SetDefault("extractor.btc.transaction", false)
+	config.SetDefault("extractor.btc.transaction_resolve_previous", true)
+	config.SetDefault("extractor.btc.transaction_pool_lifetime", "336h") // 14 days
+	config.SetDefault("extractor.btc.transaction_store_raw", true)
+
+	config.SetDefault("extractor.btc.bhcache_lifetime", "0")
+
+	config.SetDefault("extractor.btc.bhtxn_monitor_block_header_lifetime", "240m")
+	config.SetDefault("extractor.btc.bhtxn_monitor_transaction_lifetime", "4m")
+	config.SetDefault("extractor.btc.bhtxn_monitor_block_wait_timeout", "60m")
 
 }
