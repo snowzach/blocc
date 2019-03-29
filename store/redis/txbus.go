@@ -22,7 +22,7 @@ func (c *client) Publish(symbol string, key string, tx *blocc.Tx) error {
 	return c.client.Publish(c.symPrefix(symbol)+key, string(data)).Err()
 }
 
-// Publish will publish a message to any listeners on the channel
+// Subscribe will listen for messages on a particular key
 func (c *client) Subscribe(symbol string, key string) (blocc.TxChannel, error) {
 	sub := c.client.Subscribe(c.symPrefix(symbol) + key)
 	_, err := sub.Receive()

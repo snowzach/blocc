@@ -1,0 +1,86 @@
+
+# Logger Level
+loggerLevel: info
+
+# Enable the go profiler
+profiler:
+  enabled: true
+  port: 6060
+
+# Elasticsearch settings
+elasticsearch:
+  debug: false
+  host: elasticsearch-data
+  port: 9200
+  sniff: true
+  index: blocc
+  requestTimeout: 12m
+  throttleSearches: 60
+  bulkFlushInterval: 5s
+  bulkWorkers: 5
+
+# Redis Settings
+redis:
+  host: redis
+  port: 6379
+  masterName: ""
+  password: ""
+  index: 0
+
+# Extractor Settings
+extractor:
+  btc:
+    host: bitcoind
+    port: 8333
+    chain: mainnet
+    debug: false
+    block:
+      concurrent: 30
+      headersRequestCount: 2000
+      requestCount: 500
+
+# This replica only pertains to the webserver container
+replicaCount: 2
+
+image:
+  repository: registry.coinninja.net/backend/blocc
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: NodePort
+  port: 8080
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    # Sets the configuration for the cross-site scripting filters built into most browsers
+    ingress.kubernetes.io/browser-xss-filter: "true"
+    # Upgrade insecure requests
+    ingress.kubernetes.io/content-security-policy: "upgrade-insecure-requests"
+    # Prevents the  browser from trying to MIME-sniff the content type and forces it to stick with the declared content-type
+    ingress.kubernetes.io/content-type-nosniff: "true"
+    # Prevents a browser from framing the site, mitigating clickjacking.
+    ingress.kubernetes.io/frame-deny: "true"
+    # Will not allow any information to be sent in the Referrer header when a scheme downgrade happens (HTTPS to HTTP)
+    # Only the origin is sent, no path information. This will prevent data leaking from URLs such as BTC addresses, etc.
+    ingress.kubernetes.io/referrer-policy: "strict-origin-when-cross-origin"
+    ingress.kubernetes.io/ssl-proxy-headers: "X-Forwarded-Proto:https"
+    ingress.kubernetes.io/ssl-redirect: "true"
+    # ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8, 76.188.97.67/32"
+  hosts:
+    - name: api.coinninja.tld
+      paths:
+        - context: /
+          serviceName: blocc-server
+          servicePort: 8080
+  tls: []
+
+# resources: {}
+
+# nodeSelector: {}
+
+# tolerations: []
+
+# affinity: {}

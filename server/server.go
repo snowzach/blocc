@@ -5,13 +5,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 	"log"
 	"net"
 	"net/http"
 	"strings"
 	"time"
+
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -19,7 +20,7 @@ import (
 	"github.com/go-chi/render"
 	"github.com/gogo/gateway"
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/snowzach/certtools"
 	"github.com/snowzach/certtools/autocert"
@@ -47,13 +48,17 @@ type Server struct {
 	gwRegFuncs []gwRegFunc
 
 	defaultSymbol string
-	dc            store.DistCache
-	txp           blocc.TxPool
-	txb           blocc.TxBus
+	defaultCount  int
+
+	distCache    store.DistCache
+	cacheTimeout time.Duration
+
+	blockChainStore blocc.BlockChainStore
+	txBus           blocc.TxBus
 }
 
 // New will setup the server
-func New(dc store.DistCache, txp blocc.TxPool, txb blocc.TxBus) (*Server, error) {
+func New(blockChainStore blocc.BlockChainStore, txBus blocc.TxBus, distCache store.DistCache) (*Server, error) {
 
 	// This router is used for http requests only, setup all of our middleware
 	r := chi.NewRouter()
@@ -122,9 +127,13 @@ func New(dc store.DistCache, txp blocc.TxPool, txb blocc.TxBus) (*Server, error)
 		gwRegFuncs: make([]gwRegFunc, 0),
 
 		defaultSymbol: config.GetString("server.default_symbol"),
-		dc:            dc,
-		txp:           txp,
-		txb:           txb,
+		defaultCount:  config.GetInt("server.default_count"),
+
+		distCache:    distCache,
+		cacheTimeout: config.GetDuration("server.cache_duration"),
+
+		blockChainStore: blockChainStore,
+		txBus:           txBus,
 	}
 	s.server = &http.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -138,6 +147,32 @@ func New(dc store.DistCache, txp blocc.TxPool, txb blocc.TxBus) (*Server, error)
 	}
 
 	s.SetupRoutes()
+
+	return s, nil
+
+}
+
+// NewHealthServer returns OK to pretty every response - just used as a health check endpoint
+func NewHealthServer() (*Server, error) {
+
+	// Create the server object
+	s := &Server{
+		logger: zap.S().With("package", "server"),
+		router: chi.NewRouter(),
+	}
+	s.server = &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			s.router.ServeHTTP(w, r)
+		}),
+	}
+
+	// Enable the version endpoint
+	s.router.Get("/version", s.GetVersion())
+
+	// Every Route Returns OK
+	s.router.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		render.PlainText(w, r, "OK")
+	})
 
 	return s, nil
 
@@ -200,29 +235,34 @@ func (s *Server) ListenAndServe() error {
 		grpcGatewayDialOptions = append(grpcGatewayDialOptions, grpc.WithInsecure())
 	}
 
-	// Setup the GRPC gateway - use gogoproto's marshaler
-	grpcGatewayJSONpbMarshaler := gateway.JSONPb(jsonpb.Marshaler{
-		EnumsAsInts:  config.GetBool("server.rest.enums_as_ints"),
-		EmitDefaults: config.GetBool("server.rest.emit_defaults"),
-		OrigName:     config.GetBool("server.rest.orig_names"),
-	})
-	grpcGatewayMux := gwruntime.NewServeMux(gwruntime.WithMarshalerOption(gwruntime.MIMEWildcard, &grpcGatewayJSONpbMarshaler))
+	// If we haven't specified the grpc server, don't initialize all the grpc endpoints
+	if s.grpcServer != nil {
 
-	// Register all the GRPC gateway functions
-	for _, gwrf := range s.gwRegFuncs {
-		err = gwrf(context.Background(), grpcGatewayMux, listener.Addr().String(), grpcGatewayDialOptions)
-		if err != nil {
-			return fmt.Errorf("Could not register HTTP/gRPC gateway: %s", err)
+		// Setup the GRPC gateway - use gogoproto's marshaler
+		grpcGatewayJSONpbMarshaler := gateway.JSONPb(jsonpb.Marshaler{
+			EnumsAsInts:  config.GetBool("server.rest.enums_as_ints"),
+			EmitDefaults: config.GetBool("server.rest.emit_defaults"),
+			OrigName:     config.GetBool("server.rest.orig_names"),
+		})
+		grpcGatewayMux := gwruntime.NewServeMux(gwruntime.WithMarshalerOption(gwruntime.MIMEWildcard, &grpcGatewayJSONpbMarshaler))
+
+		// Register all the GRPC gateway functions
+		for _, gwrf := range s.gwRegFuncs {
+			err = gwrf(context.Background(), grpcGatewayMux, listener.Addr().String(), grpcGatewayDialOptions)
+			if err != nil {
+				return fmt.Errorf("Could not register HTTP/gRPC gateway: %s", err)
+			}
 		}
+
+		// Wrap the grpcGateway in the websocket proxy helper and our server logger
+		wsGrpcMux := wsproxy.WebsocketProxy(grpcGatewayMux, wsproxy.WithLogger(&serverLogger{logger: s.logger}))
+
+		// If the main router did not find and endpoint, pass it to the grpcGateway
+		s.router.NotFound(func(w http.ResponseWriter, r *http.Request) {
+			wsGrpcMux.ServeHTTP(w, r)
+		})
+
 	}
-
-	// Wrap the grpcGateway in the websocket proxy helper and our server logger
-	wsGrpcMux := wsproxy.WebsocketProxy(grpcGatewayMux, wsproxy.WithLogger(&serverLogger{logger: s.logger}))
-
-	// If the main router did not find and endpoint, pass it to the grpcGateway
-	s.router.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		wsGrpcMux.ServeHTTP(w, r)
-	})
 
 	go func() {
 		if err = s.server.Serve(listener); err != nil {

@@ -7,8 +7,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
+	"git.coinninja.net/backend/blocc/blocc"
 	"git.coinninja.net/backend/blocc/server/rpc"
-	"git.coinninja.net/backend/blocc/store"
 )
 
 // GetMemPoolStats returns mempool statistics
@@ -21,24 +21,17 @@ func (s *Server) GetMemPoolStats(ctx context.Context, input *rpc.Symbol) (*rpc.M
 	mps := new(rpc.MemPoolStats)
 
 	// Check the cache
-	err := s.dc.GetScan("mempool", "stats", mps)
+	err := s.distCache.GetScan("mempool", "stats", mps)
 	if err == nil {
 		return mps, nil
-	} else if err != nil && err != store.ErrNotFound {
+	} else if err != nil && err != blocc.ErrNotFound {
 		s.logger.Errorw("Could not check DistCache for stats", "error", err)
-		return nil, grpc.Errorf(codes.Internal, "Could not GetMemPoolStats")
-
 	}
 
-	// Fetch the values
-	count, err := s.txp.GetTransactionCount(input.Symbol)
+	// Return the aggregate size and count of transactions with blockId = BlockIdMempool
+	size, count, err := s.blockChainStore.GetMemPoolStats(input.Symbol)
 	if err != nil {
-		s.logger.Errorw("Could not GetTransactionCount", "error", err)
-		return nil, grpc.Errorf(codes.Internal, "Could not GetMemPoolStats")
-	}
-	size, err := s.txp.GetTransactionBytes(input.Symbol)
-	if err != nil {
-		s.logger.Errorw("Could not GetTransactionBytes", "error", err)
+		s.logger.Errorw("Could not blockChainStore.GetMemPoolStats", "error", err)
 		return nil, grpc.Errorf(codes.Internal, "Could not GetMemPoolStats")
 	}
 
@@ -48,7 +41,7 @@ func (s *Server) GetMemPoolStats(ctx context.Context, input *rpc.Symbol) (*rpc.M
 	mps.MPSize = size
 
 	// Set it in the cache
-	err = s.dc.Set("mempool", "stats", mps, 15*time.Second)
+	err = s.distCache.Set("mempool", "stats", mps, s.cacheTimeout)
 	if err != nil {
 		s.logger.Errorw("Could not set DistCache stats", "error", err)
 	}
@@ -58,13 +51,13 @@ func (s *Server) GetMemPoolStats(ctx context.Context, input *rpc.Symbol) (*rpc.M
 }
 
 // GetMemPoolStream streams mempool data
-func (s *Server) GetMemPoolStream(input *rpc.Symbol, server rpc.MemPoolRPC_GetMemPoolStreamServer) error {
+func (s *Server) GetMemPoolStream(input *rpc.Symbol, server rpc.BloccRPC_GetMemPoolStreamServer) error {
 
 	if input.Symbol == "" {
 		input.Symbol = s.defaultSymbol
 	}
 
-	sub, err := s.txb.Subscribe(input.Symbol, "stream")
+	sub, err := s.txBus.Subscribe(input.Symbol, "stream")
 	if err != nil {
 		s.logger.Errorw("Could not TxMsgBus.Subscribe", "error", err)
 		return grpc.Errorf(codes.Internal, "Could not GetMemPoolStream")
@@ -80,6 +73,6 @@ func (s *Server) GetMemPoolStream(input *rpc.Symbol, server rpc.MemPoolRPC_GetMe
 			return nil
 		}
 	}
-	return nil
+	//	return nil
 
 }

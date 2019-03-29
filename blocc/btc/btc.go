@@ -17,90 +17,132 @@ import (
 
 	"git.coinninja.net/backend/blocc/blocc"
 	"git.coinninja.net/backend/blocc/conf"
-	"git.coinninja.net/backend/blocc/store"
 )
 
-const Symbol = "btc"
+const (
+	Symbol            = "btc"
+	ScriptTypeUnknown = "unknown"
+)
 
 type Extractor struct {
+	// Internal stuff
 	logger      *zap.SugaredLogger
 	peer        *peer.Peer
 	chainParams *chaincfg.Params
-	bcs         blocc.BlockChainStore
-	txp         blocc.TxPool
-	txb         blocc.TxBus
-	ms          blocc.MetricStore
 
-	extractBlocks bool
-	extractTxns   bool
+	// Stores/Pool/Bus
+	blockChainStore blocc.BlockChainStore
+	validBlockStore blocc.ValidBlockStore
+	txBus           blocc.TxBus
 
-	throttleBlocks chan struct{}
-	throttleTxns   chan struct{}
+	// Frequently Used Settings
+	blockFetch                   bool
+	blockStoreRaw                bool
+	blockConcurrent              int64
+	blockValidationInterval      time.Duration
+	blockValidationHeightDelta   int64
+	blockValidationHeightHoldOff int64
 
-	storeRawBlocks       bool
-	storeRawTransactions bool
+	txFetch                 bool
+	txStoreRaw              bool
+	txResolvePrevious       bool
+	txIgnoreMissingPrevious bool
 
-	// This is used to determine how much complete data we have in our database
-	validBlockId     string
-	validBlockHeight int64
+	// BlockHeaderCache
+	blockHeaderCache         blocc.BlockHeaderCache
+	blockHeaderCacheLifetime time.Duration
 
-	txLifetime time.Duration
+	// BlockHeaderTxMon
+	blockHeaderTxMon                 blocc.BlockHeaderTxMonitor
+	blockHeaderTxMonBlockWaitTimeout time.Duration
+	blockHeaderTxMonBHLifetime       time.Duration
+	blockHeaderTxMonTxLifetime       time.Duration
 
-	newestBlock *blocc.Block
+	// How long transactions will sit in the txPool
+	txPoolLifetime time.Duration
+
+	// Sync Setting for requesting/waiting for headers to be returns
+	waitHeaders chan struct{}
 
 	sync.WaitGroup
-	sync.Mutex
+	sync.RWMutex
 }
 
-func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms blocc.MetricStore) (*Extractor, error) {
+func Extract(blockChainStore blocc.BlockChainStore, txBus blocc.TxBus) (*Extractor, error) {
 
 	e := &Extractor{
-		logger: zap.S().With("package", "blocc.btc"),
-		bcs:    bcs,
-		txp:    txp,
-		txb:    txb,
-		ms:     ms,
+		logger:          zap.S().With("package", "blocc.btc"),
+		blockChainStore: blockChainStore,
+		validBlockStore: blocc.NewValidBlockStoreMem(),
+		txBus:           txBus,
 
-		throttleBlocks: make(chan struct{}, config.GetInt("extractor.btc.throttle_blocks")),
-		throttleTxns:   make(chan struct{}, config.GetInt("extractor.btc.throttle_transactions")),
+		blockFetch:                   txBus == nil,
+		blockStoreRaw:                config.GetBool("extractor.btc.block_store_raw"),
+		blockConcurrent:              config.GetInt64("extractor.btc.block_concurrent"),
+		blockValidationInterval:      config.GetDuration("extractor.btc.block_validation_interval"),
+		blockValidationHeightDelta:   config.GetInt64("extractor.btc.block_validation_height_delta"),
+		blockValidationHeightHoldOff: config.GetInt64("extractor.btc.block_validation_height_holdoff"),
 
-		storeRawBlocks:       config.GetBool("extractor.btc.store_raw_blocks"),
-		storeRawTransactions: config.GetBool("extractor.btc.store_raw_transactions"),
+		txFetch:           txBus != nil,
+		txStoreRaw:        config.GetBool("extractor.btc.transaction_store_raw"),
+		txResolvePrevious: config.GetBool("extractor.btc.transaction_resolve_previous"),
 
-		txLifetime: config.GetDuration("extractor.btc.transaction_lifetime"),
+		blockHeaderCache:         blocc.NewBlockHeaderCacheMem(),
+		blockHeaderCacheLifetime: config.GetDuration("extractor.btc.bhcache_lifetime"),
+
+		// If we forced the block chain height, we must assume there will be missing transactions
+		// If we don't ignore them, we will just retry the same blocks over and over
+		txIgnoreMissingPrevious: config.GetInt64("extractor.btc.block_start_height") > blocc.HeightUnknown,
+
+		blockHeaderTxMon:                 blocc.NewBlockHeaderTxMonitorMem(),
+		blockHeaderTxMonBlockWaitTimeout: config.GetDuration("extractor.btc.bhtxn_monitor_block_wait_timeout"),
+		blockHeaderTxMonBHLifetime:       config.GetDuration("extractor.btc.bhtxn_monitor_block_header_lifetime"),
+		blockHeaderTxMonTxLifetime:       config.GetDuration("extractor.btc.bhtxn_monitor_transaction_lifetime"),
+
+		txPoolLifetime: config.GetDuration("extractor.btc.transaction_pool_lifetime"),
 	}
+
+	// Output Config
+	e.logger.Infow("Starting Extractor",
+
+		"extractor.btc.block_store_raw", e.blockStoreRaw,
+		"extractor.btc.block_concurrent", e.blockConcurrent,
+		"extractor.btc.block_validation_interval", e.blockValidationInterval,
+		"extractor.btc.transaction_resolve_previous", e.txResolvePrevious,
+
+		"extractor.btc.bhcache_lifetime", e.blockHeaderCacheLifetime,
+
+		"extractor.btc.bhtxn_monitor_block_wait_timeout", e.blockHeaderTxMonBlockWaitTimeout,
+		"extractor.btc.bhtxn_monitor_block_header_lifetime", e.blockHeaderTxMonBHLifetime,
+		"extractor.btc.bhtxn_monitor_transaction_lifetime", e.blockHeaderTxMonTxLifetime,
+
+		"extractor.btc.transaction_pool_lifetime", e.txPoolLifetime,
+		"extractor.btc.transaction_store_raw", e.txStoreRaw,
+	)
+	time.Sleep(2 * time.Second)
 
 	var err error
 
 	// Initialize the BlockChainStore for BTC
-	if bcs != nil {
-		err = e.bcs.Init(Symbol)
+	if e.blockChainStore != nil {
+		err = e.blockChainStore.Init(Symbol)
 		if err != nil {
 			return nil, fmt.Errorf("Could not Init BlockChainStore: %s", err)
 		}
 	}
 
-	// Initialize the TxPool for BTC
-	if txp != nil {
-		err = e.txp.Init(Symbol)
+	if e.blockHeaderCache != nil {
+		err = e.blockHeaderCache.Init(Symbol)
 		if err != nil {
-			return nil, fmt.Errorf("Could not Init TxPool: %s", err)
+			return nil, fmt.Errorf("Could not Init BlockHeaderCache: %s", err)
 		}
 	}
 
 	// Initialize the TxBus for BTC
-	if txb != nil {
-		err = e.txb.Init(Symbol)
+	if e.txBus != nil {
+		err = e.txBus.Init(Symbol)
 		if err != nil {
 			return nil, fmt.Errorf("Could not Init TxBus: %s", err)
-		}
-	}
-
-	// Initialize the MetricStire for BTC
-	if ms != nil {
-		err = e.ms.Init(Symbol)
-		if err != nil {
-			return nil, fmt.Errorf("Could not Init MetricStore: %s", err)
 		}
 	}
 
@@ -122,7 +164,95 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 		return nil, fmt.Errorf("Could not find chain %s", config.GetString("extractor.btc.chain"))
 	}
 
+	// Connect to the peer
+	err = e.Connect()
+	if err != nil {
+		return nil, err
+	}
+
+	// Did we provide a blockchain store? If so, we're processing blocks, go fetch the block chain
+	if e.blockFetch {
+
+		// Starting point for fetching data - get the highest validated block
+		validBlockHeader, err := e.blockChainStore.GetBlockHeaderTopByStatuses(Symbol, []string{blocc.StatusValid})
+		if err != nil && err != blocc.ErrNotFound {
+			e.logger.Fatalw("blockChainStore.GetBlockHeaderTopByStatuses", "error", err)
+		}
+		if validBlockHeader == nil || err == blocc.ErrNotFound || validBlockHeader.Height < config.GetInt64("extractor.btc.block_start_height") {
+			// Set to the start block if we don't have any or for some reason we were requested to start higher
+			validBlockHeader = &blocc.BlockHeader{
+				BlockId: config.GetString("extractor.btc.block_start_id"),
+				Height:  config.GetInt64("extractor.btc.block_start_height"),
+			}
+		}
+
+		// If we're starting at the genesis block, insert it
+		if validBlockHeader.Height == blocc.HeightUnknown { // = -1 = Genesis
+			// Store the block ID when we need to reference it
+			e.blockHeaderCache.InsertBlockHeader(Symbol, &blocc.BlockHeader{
+				BlockId: e.chainParams.GenesisBlock.BlockHash().String(),
+				Time:    e.chainParams.GenesisBlock.Header.Timestamp.Unix(),
+				Height:  0,
+			}, e.blockHeaderCacheLifetime)
+			// Set the genesis block as the valid block
+			e.validBlockStore.SetValidBlock(&blocc.BlockHeader{Height: blocc.HeightUnknown})
+			// Store the block itself, this will update the block chain height to the genesis block
+			e.handleBlock(e.chainParams.GenesisBlock)
+		} else {
+			// Otherwise we're at another/existing block chain height, the blockChainStore is at that height either natrually for forced
+			e.blockHeaderCache.InsertBlockHeader(Symbol, validBlockHeader, e.blockHeaderCacheLifetime)
+			e.blockHeaderTxMon.AddBlockHeader(validBlockHeader, e.blockHeaderTxMonBHLifetime)
+			e.validBlockStore.SetValidBlock(validBlockHeader)
+		}
+
+		// Fetch the block chain from here
+		go e.fetchBlockChain()
+
+	} else {
+		// The block fetcher automatically implenents logic to disconnect and reconnect to peers
+
+	}
+
+	// Get the mempool from the peer when we're not tracking blocks (we're tracking transactions)
+	if e.txFetch {
+		err := e.blockChainStore.DeleteTransactionsByBlockIdAndTime(Symbol, blocc.BlockIdMempool, nil, nil)
+		if err != nil {
+			e.logger.Fatalf("Could not empty the mempool:%v", err)
+		}
+		e.RequestMemPool()
+	}
+
+	// Close the peer if stop signal comes in and clean everything up
+	go func() {
+		conf.Stop.Add(1) // Hold shutdown until everything flushed
+		<-conf.Stop.Chan()
+		e.peer.Disconnect()
+		e.Wait()                      // Wait until all in progress blocks are handled
+		e.blockHeaderTxMon.Shutdown() // Shutdown the monitor
+		if e.blockFetch {             // We're tracking blocks
+			// Get the current valid block
+			valid := e.validBlockStore.GetValidBlock()
+			// If we're behind more than blockValidationHeightDelta blocks mark them valid if they are stored
+			if valid != nil && valid.Height < int64(e.peer.LastBlock())-e.blockValidationHeightDelta {
+				e.logger.Info("Flushing BlockChainStore")
+				_, err = e.validateBlocksSimple(valid.Height)
+				if err != nil {
+					e.logger.Errorf("Flushing BlockChainStore:%v", err)
+				}
+			}
+		}
+		conf.Stop.Done()
+	}()
+
+	return e, nil
+
+}
+
+// Establish the connection to the peer address and mark it connected.
+func (e *Extractor) Connect() error {
+
 	// When we get a verack message we are ready to process
+	var err error
 	ready := make(chan struct{})
 
 	peerConfig := &peer.Config{
@@ -132,9 +262,10 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 		Services:         wire.SFNodeWitness,
 		TrickleInterval:  time.Second * 10,
 		Listeners: peer.MessageListeners{
-			OnBlock: e.OnBlock,
-			OnTx:    e.OnTx,
-			OnInv:   e.OnInv,
+			OnBlock:   e.OnBlock,
+			OnTx:      e.OnTx,
+			OnInv:     e.OnInv,
+			OnHeaders: e.OnHeaders,
 			OnVerAck: func(p *peer.Peer, msg *wire.MsgVerAck) {
 				e.logger.Debug("Got VerAck")
 				close(ready)
@@ -143,7 +274,7 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 	}
 
 	// Do we want to see debug messages
-	if config.GetBool("extractor.btc.debug_messages") {
+	if config.GetBool("extractor.btc.debug") {
 		peerConfig.Listeners.OnRead = e.OnRead
 		peerConfig.Listeners.OnWrite = e.OnWrite
 	}
@@ -151,94 +282,91 @@ func Extract(bcs blocc.BlockChainStore, txp blocc.TxPool, txb blocc.TxBus, ms bl
 	// Create peer connection
 	e.peer, err = peer.NewOutboundPeer(peerConfig, net.JoinHostPort(config.GetString("extractor.btc.host"), config.GetString("extractor.btc.port")))
 	if err != nil {
-		return nil, fmt.Errorf("Could not create outbound peer: %v", err)
+		return fmt.Errorf("Could not create outbound peer: %v", err)
 	}
 
-	// Establish the connection to the peer address and mark it connected.
 	conn, err := net.Dial("tcp", e.peer.Addr())
 	if err != nil {
-		return nil, fmt.Errorf("Could not Dial peer: %v", err)
+		return fmt.Errorf("Could not Dial peer: %v", err)
 	}
 
-	// Start it up
 	e.peer.AssociateConnection(conn)
 
 	// Wait until ready or timeout
 	select {
 	case <-ready:
 	case <-time.After(10 * time.Second):
-		return nil, fmt.Errorf("Never got verack ready message")
+		return fmt.Errorf("Never got verack ready message")
 	}
 
 	e.logger.Infow("Connected to peer", "peer", e.peer.Addr(), "height", e.peer.StartingHeight(), "last_block", e.peer.LastBlock())
 
-	// Did we provide a blockchain store?
-	if e.bcs != nil {
-		// Figure out the top block in the store
-		e.validBlockId, e.validBlockHeight, err = e.bcs.GetBlockHeight(Symbol)
-		if err != nil && err != store.ErrNotFound {
-			e.logger.Errorw("GetBlockHeight", "error", err)
-		} else {
-			if err == store.ErrNotFound {
-				// Set to the start block if we don't have any
-				e.validBlockId = config.GetString("extractor.btc.start_block_id")
-				e.validBlockHeight = config.GetInt64("extractor.btc.start_block_height")
-			}
-			e.logger.Infow("Starting block extraction", "start_block_id", e.validBlockId, "start_block_height", e.validBlockHeight)
-			go e.fetchBlockChain()
-		}
-	}
-
-	// Get the mempool from the peer
-	if e.txp != nil {
-		e.RequestMemPool()
-	}
-
-	return e, nil
+	return nil
 
 }
 
-// fetchBlockChain will start fetching blocks until it has the entire block chain
-func (e *Extractor) fetchBlockChain() {
+// Disconnect will disconnect a peer
+func (e *Extractor) Disconnect() {
+	e.peer.Disconnect()
+}
 
-	for {
-		start := time.Now()
+// RequestHeaders will make a GetHeaders request of the peer
+func (e *Extractor) RequestHeaders(start string, stop string) (<-chan struct{}, error) {
 
-		e.Lock()
+	startHash, err := chainhash.NewHashFromStr(start)
+	if err != nil {
+		return nil, fmt.Errorf("NewHashFromStr: error %v\n", err)
+	}
+	var locator blockchain.BlockLocator = []*chainhash.Hash{startHash}
 
-		// This will fetch blocks, the first block will be the one after this one and will return 500 blocks
-		e.RequestBlocks(e.validBlockId, "0")
-		// We will fetch 500 blocks (after this block) so the last block we will get is this block + 500
-		height := e.validBlockHeight + 500
-
-		e.Unlock()
-
-		// IF the last block we've received is within this window, we're done here
-		// TODO: Validate this
-		if int64(e.peer.LastBlock()) < height {
-			return
-		}
-
-		// Otherwise, wait for the blocks for 2 hours
-		blk := <-e.bcs.WaitForBlockHeight(height, time.Now().Add(120*time.Minute))
-		if blk == nil {
-			e.logger.Errorw("Did not get block when following blockchain", "height", height)
-		} else {
-			e.logger.Infow("Block Chain Stats",
-				"rate(/h)", 500.0/(time.Now().Sub(start).Hours()),
-				"rate(/m)", 500.0/time.Now().Sub(start).Minutes(),
-				"rate(/s)", 500.0/time.Now().Sub(start).Seconds(),
-				"eta", (time.Duration(float64(int64(e.peer.LastBlock())-height)/(500.0/time.Now().Sub(start).Seconds())) * time.Second).String(),
-			)
-		}
-
-		e.Lock()
-		e.validBlockId = blk.BlockId
-		e.validBlockHeight = blk.Height
-		e.Unlock()
-
+	// Stophash - All zero means fetch as many as we can
+	stopHash, err := chainhash.NewHashFromStr(stop)
+	if err != nil {
+		return nil, fmt.Errorf("NewHashFromStr: error %v\n", err)
 	}
 
+	// Setup the get headers signal
+	e.Lock()
+	if e.waitHeaders == nil {
+		e.waitHeaders = make(chan struct{})
+	}
+	defer e.Unlock()
+
+	err = e.peer.PushGetHeadersMsg(locator, stopHash)
+	if err != nil {
+		return nil, fmt.Errorf("PushGetHeadersMsg: error %v\n", err)
+	}
+
+	return e.waitHeaders, nil
+
+}
+
+// OnHeaders is called when the peer sends headers
+func (e *Extractor) OnHeaders(p *peer.Peer, msg *wire.MsgHeaders) {
+	e.logger.Debugw("Got Headers", "len", len(msg.Headers))
+
+	// Put all the headers in the cache
+	go func() {
+		for _, h := range msg.Headers {
+			prevBlockHeader, err := e.blockHeaderCache.GetBlockHeaderByBlockId(Symbol, h.PrevBlock.String())
+			if err != nil || prevBlockHeader == nil {
+				e.logger.Warnw("Could not find prevBlock when parsing headers", "error", err, "prevBlockNil", prevBlockHeader == nil)
+				continue
+			}
+			e.blockHeaderCache.InsertBlockHeader(Symbol, &blocc.BlockHeader{
+				BlockId:     h.BlockHash().String(),
+				Height:      prevBlockHeader.Height + 1,
+				PrevBlockId: prevBlockHeader.BlockId,
+				Time:        h.Timestamp.Unix(),
+			}, e.blockHeaderCacheLifetime)
+		}
+		e.Lock()
+		if e.waitHeaders != nil {
+			close(e.waitHeaders)
+			e.waitHeaders = nil
+		}
+		e.Unlock()
+	}()
 }
 
 // RequestBlocks will send a GetBlocks Message to the peer
@@ -246,23 +374,35 @@ func (e *Extractor) RequestBlocks(start string, stop string) error {
 
 	startHash, err := chainhash.NewHashFromStr(start)
 	if err != nil {
-		return fmt.Errorf("NewHashFromStr: error %v\n", err)
+		return fmt.Errorf("NewHashFromStr: error %v", err)
 	}
 	var locator blockchain.BlockLocator = []*chainhash.Hash{startHash}
 
 	// Stophash - All zero means fetch 500
 	stopHash, err := chainhash.NewHashFromStr(stop)
 	if err != nil {
-		return fmt.Errorf("NewHashFromStr: error %v\n", err)
+		return fmt.Errorf("NewHashFromStr: error %v", err)
 	}
 
 	err = e.peer.PushGetBlocksMsg(locator, stopHash)
 	if err != nil {
-		return fmt.Errorf("PushGetBlocksMsg: error %v\n", err)
+		return fmt.Errorf("PushGetBlocksMsg: error %v", err)
 	}
 
 	return nil
 
+}
+
+// OnBlock is called when we receive a block message
+func (e *Extractor) OnBlock(p *peer.Peer, msg *wire.MsgBlock, buf []byte) {
+
+	// If we're only handling transactions, we can ignore blocks
+	// The transactions will be overritten in the blockChainStore with the block information
+	if e.txFetch {
+		return
+	}
+	// Otherwise handle the block
+	go e.handleBlock(msg)
 }
 
 // RequestMemPool will send a request for the peers mempool
@@ -272,21 +412,26 @@ func (e *Extractor) RequestMemPool() {
 
 // OnTx is called when we receive a transaction
 func (e *Extractor) OnTx(p *peer.Peer, msg *wire.MsgTx) {
-	e.throttleTxns <- struct{}{}
-	go func() {
-		e.handleTx(nil, 0, msg)
-		<-e.throttleTxns
-	}()
-}
 
-// OnBlock is called when we receive a block message
-func (e *Extractor) OnBlock(p *peer.Peer, msg *wire.MsgBlock, buf []byte) {
+	// See if we can resolve transactions
+	prevOutPoints := make(map[string]*blocc.Tx)
+	txIdsInThisBlock := make(map[string]struct{})
 
-	e.throttleBlocks <- struct{}{}
-	go func() {
-		e.handleBlock(msg, len(buf))
-		<-e.throttleBlocks
-	}()
+	for _, vin := range msg.TxIn {
+		// Get the prevOutPoint hash
+		hash := vin.PreviousOutPoint.Hash.String()
+		// If the cache already has it, populate it. If it's missing it will be nil
+		prevOutPoints[hash] = <-e.blockHeaderTxMon.WaitForTxId(hash, 0)
+	}
+
+	// Resolve the previous out points
+	err := e.getPrevOutPoints(prevOutPoints, nil, txIdsInThisBlock)
+	if err != nil {
+		e.logger.Errorf("Error OnTx e.getPrevOutPoints: %v", err)
+		return
+	}
+
+	go e.handleTx(nil, blocc.HeightUnknown, msg, prevOutPoints)
 }
 
 // OnInv is called when the peer reports it has an inventory item
@@ -297,21 +442,36 @@ func (e *Extractor) OnInv(p *peer.Peer, msg *wire.MsgInv) {
 	for _, iv := range msg.InvList {
 		switch iv.Type {
 		case wire.InvTypeTx:
-			e.logger.Debugw("Got Inv", "type", iv.Type, "txid", iv.Hash.String())
-			msg := wire.NewMsgGetData()
-			err := msg.AddInvVect(iv)
-			if err != nil {
-				e.logger.Errorw("AddInvVect", "error", err)
+			// We're only going to handle transactions when we're not tracking blocks
+			if e.txFetch {
+				e.logger.Debugw("Got Inv", "type", iv.Type, "txid", iv.Hash.String())
+				msg := wire.NewMsgGetData()
+				// Request the witness version
+				iv.Type |= wire.InvWitnessFlag
+				err := msg.AddInvVect(iv)
+				if err != nil {
+					e.logger.Errorw("AddInvVect", "error", err)
+				}
+				p.QueueMessage(msg, nil)
 			}
-			p.QueueMessage(msg, nil)
 		case wire.InvTypeBlock:
-			e.logger.Debugw("Got Inv", "type", iv.Type, "txid", iv.Hash.String())
-			msg := wire.NewMsgGetData()
-			err := msg.AddInvVect(iv)
-			if err != nil {
-				e.logger.Errorw("AddInvVect", "error", err)
+
+			blockHash := iv.Hash.String()
+			// Check to see if we've already handled this block
+			bh := <-e.blockHeaderTxMon.WaitForBlockId(blockHash, 0)
+			if bh == nil {
+				e.logger.Debugw("Got Inv", "type", iv.Type, "block_id", blockHash)
+				msg := wire.NewMsgGetData()
+				// Request the witness version
+				iv.Type |= wire.InvWitnessFlag
+				err := msg.AddInvVect(iv)
+				if err != nil {
+					e.logger.Errorw("AddInvVect", "error", err)
+				}
+				p.QueueMessage(msg, nil)
+			} else {
+				e.logger.Debugw("Duplicate Inv", "type", iv.Type, "block_id", blockHash)
 			}
-			p.QueueMessage(msg, nil)
 		}
 	}
 }

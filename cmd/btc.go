@@ -9,7 +9,6 @@ import (
 	"git.coinninja.net/backend/blocc/blocc/btc"
 	"git.coinninja.net/backend/blocc/conf"
 	"git.coinninja.net/backend/blocc/server"
-	"git.coinninja.net/backend/blocc/store"
 	"git.coinninja.net/backend/blocc/store/esearch"
 	"git.coinninja.net/backend/blocc/store/redis"
 )
@@ -17,18 +16,20 @@ import (
 func init() {
 	rootCmd.AddCommand(btcCmd)
 
-	btcCmd.PersistentFlags().BoolVarP(&btcCmdServer, "server", "s", false, "Start the webserver")
-	btcCmd.PersistentFlags().BoolVarP(&btcCmdBlocks, "blocks", "b", false, "Start the block extractor")
-	btcCmd.PersistentFlags().BoolVarP(&btcCmdTxns, "transactions", "t", false, "Start the txn extractor")
+	btcCmd.PersistentFlags().BoolVarP(&btcCmdBlocks, "block", "b", false, "Start the block extractor")
+	btcCmd.PersistentFlags().BoolVarP(&btcCmdTxns, "transaction", "t", false, "Start the txn extractor")
+	btcCmd.PersistentFlags().BoolVarP(&btcCmdHealth, "health", "", false, "Start the health server")
 
-	config.BindPFlag("extractor.btc.blocks", btcCmd.PersistentFlags().Lookup("blocks"))
-	config.BindPFlag("extractor.btc.transactions", btcCmd.PersistentFlags().Lookup("transactions"))
+	// Bind these to environment variables
+	config.BindPFlag("extractor.btc.block", btcCmd.PersistentFlags().Lookup("block"))
+	config.BindPFlag("extractor.btc.transaction", btcCmd.PersistentFlags().Lookup("transaction"))
+	config.BindPFlag("extractor.btc.health", btcCmd.PersistentFlags().Lookup("health"))
 }
 
 var (
-	btcCmdServer bool
 	btcCmdBlocks bool
 	btcCmdTxns   bool
+	btcCmdHealth bool
 
 	btcCmd = &cli.Command{
 		Use:   "btc",
@@ -39,70 +40,51 @@ var (
 			var err error
 
 			// Setup the BlockStore
-			var bcs blocc.BlockChainStore
-			var txp blocc.TxPool
-			var txb blocc.TxBus
-			var ms blocc.MetricStore
+			var blockChainStore blocc.BlockChainStore
+			var txBus blocc.TxBus
+
+			// Everything uses redis
+			r, err := redis.New()
+			if err != nil {
+				logger.Fatalw("TxPool/TxBus Error", "error", err)
+			}
 
 			// Elastic will implement BlockStore
-			if btcCmdBlocks {
-				es, err := esearch.New()
-				if err != nil {
-					logger.Fatalw("BlockStore Error", "error", err)
-				}
-				// Elastic will implement BlockStore
-				bcs = es
-				// Elastic will implement MetricStore
-				ms = es
+			blockChainStore, err = esearch.New()
+			if err != nil {
+				logger.Fatalw("BlockStore Error", "error", err)
 			}
 
 			// Redis will implement the TxPool/TxBus
-			if btcCmdTxns || btcCmdServer {
-				r, err := redis.New("mempool")
-				if err != nil {
-					logger.Fatalw("TxPool/TxBus Error", "error", err)
-				}
-
-				// Redis implents TxStore
-				txp = r
+			if btcCmdTxns {
 				// Redis will also implement the message bus
-				txb = r
-			}
-
-			// Redis will implement a dist cache if we are running the server
-			var dc store.DistCache
-			if btcCmdServer {
-				dc, err = redis.New("distcache")
-				if err != nil {
-					logger.Fatalw("DistCache Error", "error", err)
-				}
+				txBus = r.Prefix("mbus")
 			}
 
 			// Start the extractor
-			if btcCmdBlocks || btcCmdTxns {
-				_, err = btc.Extract(bcs, txp, txb, ms)
-				if err != nil {
-					logger.Fatalw("Could not create Extractor",
-						"error", err,
-					)
-				}
+			_, err = btc.Extract(blockChainStore, txBus)
+			if err != nil {
+				logger.Fatalw("Could not create Extractor",
+					"error", err,
+				)
 			}
 
-			//  Also start the web server
-			if btcCmdServer {
-				// Create the server
-				s, err := server.New(dc, txp, txb)
+			// If we requested a health server, also start it
+			if btcCmdHealth {
+
+				s, err := server.NewHealthServer()
 				if err != nil {
-					logger.Fatalw("Could not create server",
+					logger.Fatalw("Could not create health server",
 						"error", err,
 					)
 				}
 				err = s.ListenAndServe()
 				if err != nil {
-					logger.Fatalw("Could not start server",
+					logger.Fatalw("Could not start health server",
 						"error", err,
 					)
 				}
+
 			}
 
 			<-conf.Stop.Chan() // Wait until StopChan

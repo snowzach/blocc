@@ -91,6 +91,7 @@ func initConfig() {
 func initLog() {
 
 	logConfig := zap.NewProductionConfig()
+	logConfig.Sampling = nil
 
 	// Log Level
 	var logLevel zapcore.Level
