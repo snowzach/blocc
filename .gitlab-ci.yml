@@ -85,7 +85,7 @@ production-server:tagged:
     export CURRENT_IMAGE=$(kubectl -n indexer get deployment blocc-server -o=jsonpath='{$.spec.template.spec.containers[:1].image}')
     if [[ "${CURRENT_IMAGE}" != "${CONTAINER_TAGGED_IMAGE}" ]]; then
       echo "current image '${CURRENT_IMAGE}' is not '${CONTAINER_TAGGED_IMAGE}'"
-      kubectl -n indexer set image deployment/blocc-server blocc-server=${CONTAINER_TAGGED_IMAGE} --record
+      kubectl -n indexer set image deployment/blocc-server blocc=${CONTAINER_TAGGED_IMAGE} --record
     else
       echo "current image '${CURRENT_IMAGE}' is correct. Patching..."
       kubectl --namespace=indexer patch deployment blocc-server -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}" --record
@@ -107,7 +107,7 @@ production-btc-block:tagged:
     export CURRENT_IMAGE=$(kubectl -n indexer get deployment blocc-btc-block -o=jsonpath='{$.spec.template.spec.containers[:1].image}')
     if [[ "${CURRENT_IMAGE}" != "${CONTAINER_TAGGED_IMAGE}" ]]; then
       echo "current image '${CURRENT_IMAGE}' is not '${CONTAINER_TAGGED_IMAGE}'"
-      kubectl -n indexer set image deployment/blocc-btc-block blocc-btc-block=${CONTAINER_TAGGED_IMAGE} --record
+      kubectl -n indexer set image deployment/blocc-btc-block blocc=${CONTAINER_TAGGED_IMAGE} --record
     else
       echo "current image '${CURRENT_IMAGE}' is correct. Patching..."
       kubectl --namespace=indexer patch deployment blocc-btc-block -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}" --record
@@ -129,7 +129,7 @@ production-btc-transaction:tagged:
     export CURRENT_IMAGE=$(kubectl -n indexer get deployment blocc-btc-transaction -o=jsonpath='{$.spec.template.spec.containers[:1].image}')
     if [[ "${CURRENT_IMAGE}" != "${CONTAINER_TAGGED_IMAGE}" ]]; then
       echo "current image '${CURRENT_IMAGE}' is not '${CONTAINER_TAGGED_IMAGE}'"
-      kubectl -n indexer set image deployment/blocc-btc-transaction blocc-btc-transaction=${CONTAINER_TAGGED_IMAGE} --record
+      kubectl -n indexer set image deployment/blocc-btc-transaction blocc=${CONTAINER_TAGGED_IMAGE} --record
     else
       echo "current image '${CURRENT_IMAGE}' is correct. Patching..."
       kubectl --namespace=indexer patch deployment blocc-btc-transaction -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}" --record
