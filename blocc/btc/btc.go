@@ -44,6 +44,7 @@ type Extractor struct {
 	blockValidationHeightHoldOff int64
 
 	txFetch                 bool
+	txConcurrent            chan struct{}
 	txStoreRaw              bool
 	txResolvePrevious       bool
 	txIgnoreMissingPrevious bool
@@ -84,6 +85,7 @@ func Extract(blockChainStore blocc.BlockChainStore, txBus blocc.TxBus) (*Extract
 		blockValidationHeightHoldOff: config.GetInt64("extractor.btc.block_validation_height_holdoff"),
 
 		txFetch:           txBus != nil,
+		txConcurrent:      make(chan struct{}, config.GetInt64("extractor.btc.transaction_concurrent")),
 		txStoreRaw:        config.GetBool("extractor.btc.transaction_store_raw"),
 		txResolvePrevious: config.GetBool("extractor.btc.transaction_resolve_previous"),
 
@@ -413,25 +415,33 @@ func (e *Extractor) RequestMemPool() {
 // OnTx is called when we receive a transaction
 func (e *Extractor) OnTx(p *peer.Peer, msg *wire.MsgTx) {
 
-	// See if we can resolve transactions
-	prevOutPoints := make(map[string]*blocc.Tx)
-	txIdsInThisBlock := make(map[string]struct{})
+	go func() {
+		// See if we can resolve transactions
+		prevOutPoints := make(map[string]*blocc.Tx)
+		txIdsInThisBlock := make(map[string]struct{})
 
-	for _, vin := range msg.TxIn {
-		// Get the prevOutPoint hash
-		hash := vin.PreviousOutPoint.Hash.String()
-		// If the cache already has it, populate it. If it's missing it will be nil
-		prevOutPoints[hash] = <-e.blockHeaderTxMon.WaitForTxId(hash, 0)
-	}
+		for _, vin := range msg.TxIn {
+			// Get the prevOutPoint hash
+			hash := vin.PreviousOutPoint.Hash.String()
+			// If the cache already has it, populate it. If it's missing it will be nil
+			prevOutPoints[hash] = <-e.blockHeaderTxMon.WaitForTxId(hash, 0)
+		}
 
-	// Resolve the previous out points
-	err := e.getPrevOutPoints(prevOutPoints, nil, txIdsInThisBlock)
-	if err != nil {
-		e.logger.Errorf("Error OnTx e.getPrevOutPoints: %v", err)
-		return
-	}
+		// Handle only so many concurrent transactions
+		e.txConcurrent <- struct{}{}
+		defer func() {
+			<-e.txConcurrent
+		}()
 
-	go e.handleTx(nil, blocc.HeightUnknown, msg, prevOutPoints)
+		// Resolve the previous out points
+		err := e.getPrevOutPoints(prevOutPoints, nil, txIdsInThisBlock)
+		if err != nil {
+			e.logger.Errorf("Error OnTx e.getPrevOutPoints: %v", err)
+			return
+		}
+
+		e.handleTx(nil, blocc.HeightUnknown, msg, prevOutPoints)
+	}()
 }
 
 // OnInv is called when the peer reports it has an inventory item
