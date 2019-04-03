@@ -413,25 +413,27 @@ func (e *Extractor) RequestMemPool() {
 // OnTx is called when we receive a transaction
 func (e *Extractor) OnTx(p *peer.Peer, msg *wire.MsgTx) {
 
-	// See if we can resolve transactions
-	prevOutPoints := make(map[string]*blocc.Tx)
-	txIdsInThisBlock := make(map[string]struct{})
+	go func() {
+		// See if we can resolve transactions
+		prevOutPoints := make(map[string]*blocc.Tx)
+		txIdsInThisBlock := make(map[string]struct{})
 
-	for _, vin := range msg.TxIn {
-		// Get the prevOutPoint hash
-		hash := vin.PreviousOutPoint.Hash.String()
-		// If the cache already has it, populate it. If it's missing it will be nil
-		prevOutPoints[hash] = <-e.blockHeaderTxMon.WaitForTxId(hash, 0)
-	}
+		for _, vin := range msg.TxIn {
+			// Get the prevOutPoint hash
+			hash := vin.PreviousOutPoint.Hash.String()
+			// If the cache already has it, populate it. If it's missing it will be nil
+			prevOutPoints[hash] = <-e.blockHeaderTxMon.WaitForTxId(hash, 0)
+		}
 
-	// Resolve the previous out points
-	err := e.getPrevOutPoints(prevOutPoints, nil, txIdsInThisBlock)
-	if err != nil {
-		e.logger.Errorf("Error OnTx e.getPrevOutPoints: %v", err)
-		return
-	}
+		// Resolve the previous out points
+		err := e.getPrevOutPoints(prevOutPoints, nil, txIdsInThisBlock)
+		if err != nil {
+			e.logger.Errorf("Error OnTx e.getPrevOutPoints: %v", err)
+			return
+		}
 
-	go e.handleTx(nil, blocc.HeightUnknown, msg, prevOutPoints)
+		e.handleTx(nil, blocc.HeightUnknown, msg, prevOutPoints)
+	}()
 }
 
 // OnInv is called when the peer reports it has an inventory item
