@@ -122,6 +122,7 @@ LOGGER_LEVEL=debug
 | extractor.btc.block_validation_height_holdoff     | Hold off this many blocks from chain head in case of forks            | 10              |
 | ---                                               | ---                                                                   | ---             |
 | extractor.btc.transaction                         | Should we extract incoming transactions into the txpool               | false           |
+| extractor.btc.transaction_concurrent              | How many mempool transactions to handle concurrently                  | 1000            |
 | extractor.btc.transaction_resolve_previous        | Should we resolve previous outputs                                    | true            |
 | extractor.btc.transaction_pool_lifetime           | How long should transactions live in the pool                         | "336h"          |
 | extractor.btc.transaction_store_raw               | Should we store raw transactions in the block chain store             | true            |

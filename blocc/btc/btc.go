@@ -44,6 +44,7 @@ type Extractor struct {
 	blockValidationHeightHoldOff int64
 
 	txFetch                 bool
+	txConcurrent            chan struct{}
 	txStoreRaw              bool
 	txResolvePrevious       bool
 	txIgnoreMissingPrevious bool
@@ -84,6 +85,7 @@ func Extract(blockChainStore blocc.BlockChainStore, txBus blocc.TxBus) (*Extract
 		blockValidationHeightHoldOff: config.GetInt64("extractor.btc.block_validation_height_holdoff"),
 
 		txFetch:           txBus != nil,
+		txConcurrent:      make(chan struct{}, config.GetInt64("extractor.btc.transaction_concurrent")),
 		txStoreRaw:        config.GetBool("extractor.btc.transaction_store_raw"),
 		txResolvePrevious: config.GetBool("extractor.btc.transaction_resolve_previous"),
 
@@ -424,6 +426,12 @@ func (e *Extractor) OnTx(p *peer.Peer, msg *wire.MsgTx) {
 			// If the cache already has it, populate it. If it's missing it will be nil
 			prevOutPoints[hash] = <-e.blockHeaderTxMon.WaitForTxId(hash, 0)
 		}
+
+		// Handle only so many concurrent transactions
+		e.txConcurrent <- struct{}{}
+		defer func() {
+			<-e.txConcurrent
+		}()
 
 		// Resolve the previous out points
 		err := e.getPrevOutPoints(prevOutPoints, nil, txIdsInThisBlock)

@@ -103,6 +103,7 @@ func init() {
 	config.SetDefault("extractor.btc.block_validation_height_holdoff", 10)
 
 	config.SetDefault("extractor.btc.transaction", false)
+	config.SetDefault("extractor.btc.transaction_concurrent", 1000)
 	config.SetDefault("extractor.btc.transaction_resolve_previous", true)
 	config.SetDefault("extractor.btc.transaction_pool_lifetime", "336h") // 14 days
 	config.SetDefault("extractor.btc.transaction_store_raw", true)
