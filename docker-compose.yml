@@ -1,0 +1,48 @@
+version: '3.2'
+
+services:
+  blocc-btc-block:
+    build: .
+    container_name: blocc_btc_block
+    restart: always
+    command: [ "su-exec", "blocc:blocc", "/opt/blocc/bloccapi", "btc", "--block" ]
+    networks:
+      - hostnet
+    environment: 
+      ELASTICSEARCH_HOST: "elasticsearch"
+      ELASTICSEARCH_WIPE_CONFIRM: "true"
+      EXTRACTOR_BTC_BLOCK_START_ID: "0000000000000000002609004bff111456493f256663d48cc10826d710187fd2"
+      EXTRACTOR_BTC_BLOCK_START_HEIGHT: "569906"
+      EXTRACTOR_BTC_BLOCK_CONCURRENT: "2"
+      EXTRACTOR_BTC_HOST: "134.173.43.151"
+  
+  blocc-btc-tx:
+    build: .
+    container_name: blocc_btc_tx
+    restart: always
+    command: [ "su-exec", "blocc:blocc", "/opt/blocc/bloccapi", "btc", "--transaction" ]
+    networks:
+      - hostnet
+    environment: 
+      ELASTICSEARCH_HOST: "elasticsearch"
+      EXTRACTOR_BTC_HOST: "134.173.43.151"
+  
+  blocc-server:
+    build: .
+    container_name: blocc_server
+    restart: always
+    command: [ "su-exec", "blocc:blocc", "/opt/blocc/bloccapi", "server" ]
+    networks:
+      - hostnet
+    environment: 
+      ELASTICSEARCH_HOST: "elasticsearch"
+    ports: 
+      - 8080:8080
+
+
+
+
+networks:
+  hostnet:
+    external:
+      name: hostnet
