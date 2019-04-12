@@ -34,6 +34,54 @@ stages:
     - gcloud container clusters get-credentials prod-01
     - kubectl config current-context
 
+.k8s-deploy: &branch-deploy
+  script: |
+    export CURRENT_IMAGE=$(kubectl -n ${CI_ENVIRONMENT_SLUG}-public get deployment ${CI_PROJECT_NAME}-server -o=jsonpath='{$.spec.template.spec.containers[1].image}')
+    if [[ "${CURRENT_IMAGE}" != "${CONTAINER_BRANCH_IMAGE}" ]]; then
+      echo "current image '${CURRENT_IMAGE}' is not '${CONTAINER_BRANCH_IMAGE}'"
+      kubectl -n ${CI_ENVIRONMENT_SLUG}-public set image deployment/${CI_PROJECT_NAME}-server ${CI_PROJECT_NAME}=${CONTAINER_BRANCH_IMAGE} --record
+    else
+      echo "current image '${CURRENT_IMAGE}' is correct. Patching..."
+      kubectl --namespace=${CI_ENVIRONMENT_SLUG}-public patch deployment ${CI_PROJECT_NAME}-server -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}" --record
+    fi
+    kubectl -n ${CI_ENVIRONMENT_SLUG}-public rollout status deployment ${CI_PROJECT_NAME}-server -w
+  only:
+    - branches@backend/blocc
+  except:
+    - master
+    - develop
+
+.k8s-deploy: &tag-deploy
+  script: |
+    export CURRENT_IMAGE=$(kubectl -n ${CI_ENVIRONMENT_SLUG}-public get deployment ${CI_PROJECT_NAME}-server -o=jsonpath='{$.spec.template.spec.containers[1].image}')
+    if [[ "${CURRENT_IMAGE}" != "${CONTAINER_TAGGED_IMAGE}" ]]; then
+      echo "current image '${CURRENT_IMAGE}' is not '${CONTAINER_TAGGED_IMAGE}'"
+      kubectl -n ${CI_ENVIRONMENT_SLUG}-public set image deployment/${CI_PROJECT_NAME}-server ${CI_PROJECT_NAME}=${CONTAINER_TAGGED_IMAGE} --record
+    else
+      echo "current image '${CURRENT_IMAGE}' is correct. Patching..."
+      kubectl --namespace=${CI_ENVIRONMENT_SLUG}-public patch deployment ${CI_PROJECT_NAME}-server -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}" --record
+    fi
+    kubectl -n ${CI_ENVIRONMENT_SLUG}-public rollout status deployment ${CI_PROJECT_NAME}-server -w
+  only:
+    - tags@backend/blocc
+  except:
+    - branches
+
+.k8s-deploy: &latest-deploy
+  script: |
+    export CURRENT_IMAGE=$(kubectl -n ${CI_ENVIRONMENT_SLUG}-public get deployment ${CI_PROJECT_NAME}-server -o=jsonpath='{$.spec.template.spec.containers[1].image}')
+    if [[ "${CURRENT_IMAGE}" != "${CONTAINER_LATEST_IMAGE}" ]]; then
+      echo "current image '${CURRENT_IMAGE}' is not '${CONTAINER_LATEST_IMAGE}'"
+      kubectl -n ${CI_ENVIRONMENT_SLUG}-public set image deployment/${CI_PROJECT_NAME}-server ${CI_PROJECT_NAME}=${CONTAINER_LATEST_IMAGE} --record
+    else
+      echo "current image '${CURRENT_IMAGE}' is correct. Patching..."
+      kubectl --namespace=${CI_ENVIRONMENT_SLUG}-public patch deployment ${CI_PROJECT_NAME}-server -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}" --record
+    fi
+    kubectl -n ${CI_ENVIRONMENT_SLUG}-public rollout status deployment ${CI_PROJECT_NAME}-server -w
+  only:
+    - develop@backend/blocc
+
+
 test:
   stage: test
   image: golang:1.11-alpine3.8
@@ -75,27 +123,39 @@ tagged:
   except:
     - branches
 
+test:branch:
+  <<: *k8s
+  <<: *branch-deploy
+  stage: testing
+  environment:
+    name: test
+    url: https://api.${CI_ENVIRONMENT_SLUG}.coinninja.net/api/v1/block/info
+  when: manual
+
+test:latest:
+  <<: *k8s
+  <<: *latest-deploy
+  stage: testing
+  environment:
+    name: test
+    url: https://api.${CI_ENVIRONMENT_SLUG}.coinninja.net/api/v1/block/info
+
+test:tag:
+  <<: *k8s
+  <<: *tag-deploy
+  stage: testing
+  environment:
+    name: test
+    url: https://api.${CI_ENVIRONMENT_SLUG}.coinninja.net/api/v1/block/info
+
 production-server:tagged:
   <<: *k8s
-  stage: prod
+  <<: *tag-deploy
+  stage: production
   environment:
     name: prod
-    url: https://api.coinninja.net/api/v1/block/info
-  script: |
-    export CURRENT_IMAGE=$(kubectl -n indexer get deployment blocc-server -o=jsonpath='{$.spec.template.spec.containers[:1].image}')
-    if [[ "${CURRENT_IMAGE}" != "${CONTAINER_TAGGED_IMAGE}" ]]; then
-      echo "current image '${CURRENT_IMAGE}' is not '${CONTAINER_TAGGED_IMAGE}'"
-      kubectl -n indexer set image deployment/blocc-server blocc=${CONTAINER_TAGGED_IMAGE} --record
-    else
-      echo "current image '${CURRENT_IMAGE}' is correct. Patching..."
-      kubectl --namespace=indexer patch deployment blocc-server -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}" --record
-    fi
-    kubectl -n indexer rollout status deployment blocc-server -w
+    url: https://api.coinninja.com/api/v1/block/info
   when: manual
-  only:
-    - tags@backend/blocc
-  except:
-    - branches
 
 production-btc-block:tagged:
   <<: *k8s
