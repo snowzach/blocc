@@ -207,8 +207,9 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 			if !txs.Coinbase {
 				blks.HasFee = true
 				blks.Fee += txs.Fee
-
-				txFeeList = append(txFeeList, txs.Fee)
+				if txs.Fee > 0 {
+					txFeeList = append(txFeeList, txs.Fee)
+				}
 
 				if txs.Fee < blks.MinFee {
 					blks.MinFee = txs.Fee
@@ -244,7 +245,7 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 		blk.Data["fee"] = cast.ToString(blks.Fee)
 		quartileFees, err := stats.Quartile(stats.LoadRawData(txFeeList))
 		if err != nil {
-			blk.Data["fee_min"] = cast.ToString(float32(blks.Fee) / float32(blks.TxCount-1))
+			blk.Data["fee_min"] = cast.ToString(blks.MinFee)
 		} else {
 			blk.Data["fee_min"] = cast.ToString(float32(quartileFees.Q1))
 		}
