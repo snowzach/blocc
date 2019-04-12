@@ -207,9 +207,8 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 			if !txs.Coinbase {
 				blks.HasFee = true
 				blks.Fee += txs.Fee
-				if txs.Fee > 0 {
-					txFeeList = append(txFeeList, txs.Fee)
-				}
+
+				txFeeList = append(txFeeList, txs.Fee)
 
 				if txs.Fee < blks.MinFee {
 					blks.MinFee = txs.Fee

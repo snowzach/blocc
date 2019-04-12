@@ -101,7 +101,6 @@ func (s *Server) LegacyGetBlockChainInfo(path int) http.HandlerFunc {
 
 		if path == blockChainInfoPathFees {
 			// Return just the fees portion
-			fmt.Println(info.Fees)
 			render.JSON(w, r, info.Fees)
 		} else {
 			// Return the full info object
