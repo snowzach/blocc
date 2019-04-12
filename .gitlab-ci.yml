@@ -123,7 +123,7 @@ tagged:
   except:
     - branches
 
-test:branch:
+test-server:branch:
   <<: *k8s
   <<: *branch-deploy
   stage: testing
@@ -132,7 +132,7 @@ test:branch:
     url: https://api.${CI_ENVIRONMENT_SLUG}.coinninja.net/api/v1/block/info
   when: manual
 
-test:latest:
+test-server:latest:
   <<: *k8s
   <<: *latest-deploy
   stage: testing
@@ -140,7 +140,7 @@ test:latest:
     name: test
     url: https://api.${CI_ENVIRONMENT_SLUG}.coinninja.net/api/v1/block/info
 
-test:tag:
+test-server:tag:
   <<: *k8s
   <<: *tag-deploy
   stage: testing
