@@ -41,7 +41,7 @@ func init() {
 	config.SetDefault("server.default_count", 20)
 	config.SetDefault("server.cache_duration", "7s")
 	// Legacy API Options
-	config.SetDefault("server.legacy.btc_avg_fee_as_min", true)
+	config.SetDefault("server.legacy.btc_avg_fee_as_min", false)
 	config.SetDefault("server.legacy.btc_min_fee_max", 100)
 	config.SetDefault("server.legacy.btc_avg_fee_max", 500)
 	config.SetDefault("server.legacy.btc_max_fee_max", -1)
