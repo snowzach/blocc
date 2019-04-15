@@ -151,7 +151,7 @@ test-server:tag:
 production-server:tagged:
   <<: *k8s
   <<: *tag-deploy
-  stage: production
+  stage: prod
   environment:
     name: prod
     url: https://api.coinninja.com/api/v1/block/info
