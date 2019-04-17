@@ -7,3 +7,4 @@ embed/bindata.go
 **/*.pb.go
 **/*.pb.gw.go
 **/*.swagger.json
+docker-services

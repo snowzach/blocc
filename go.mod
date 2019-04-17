@@ -7,7 +7,6 @@ require (
 	github.com/Shopify/sarama v1.21.0 // indirect
 	github.com/btcsuite/btcd v0.0.0-20190213025234-306aecffea32
 	github.com/btcsuite/btcutil v0.0.0-20190207003914-4c204d697803
-	github.com/btcsuite/goleveldb v1.0.0 // indirect
 	github.com/coreos/etcd v3.3.12+incompatible // indirect
 	github.com/coreos/go-systemd v0.0.0-20190212144455-93d5ec2c7f76 // indirect
 	github.com/elazarl/go-bindata-assetfs v1.0.0
@@ -32,13 +31,12 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/grpc-ecosystem/grpc-gateway v1.8.5
 	github.com/hashicorp/golang-lru v0.5.1 // indirect
-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jessevdk/go-flags v1.4.0 // indirect
 	github.com/kisielk/errcheck v1.2.0 // indirect
-	github.com/kkdai/bstream v0.0.0-20181106074824-b3251f7901ec // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/mailru/easyjson v0.0.0-20190221075403-6243d8e04c3f // indirect
 	github.com/microcosm-cc/bluemonday v1.0.2 // indirect
+	github.com/montanaflynn/stats v0.5.0
 	github.com/olivere/elastic v6.2.16+incompatible
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/openzipkin/zipkin-go v0.1.5 // indirect
@@ -84,9 +82,9 @@ require (
 	golang.org/x/net v0.0.0-20190301231341-16b79f2e4e95
 	golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421 // indirect
 	golang.org/x/perf v0.0.0-20190306144031-151b6387e3f2 // indirect
-	golang.org/x/sys v0.0.0-20190308023053-584f3b12f43e // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 	golang.org/x/tools v0.0.0-20190308174544-00c44ba9c14f // indirect
+	google.golang.org/api v0.1.0
 	google.golang.org/genproto v0.0.0-20190307195333-5fe7a883aa19
 	google.golang.org/grpc v1.19.0
 	honnef.co/go/tools v0.0.0-20190215041234-466a0476246c // indirect
