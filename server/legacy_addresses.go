@@ -70,8 +70,16 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 				render.Render(w, r, ErrInvalidRequest(fmt.Errorf("You need to provide at least one address")))
 			}
 
-			page = 1
-			perPage = store.CountMax
+			page = cast.ToInt(r.URL.Query().Get("page"))
+			if page <= 0 {
+				page = 1
+			}
+			perPage = cast.ToInt(r.URL.Query().Get("perPage"))
+			if perPage <= 0 {
+				perPage = store.CountMax
+			}
+			// page = 1
+			// perPage = store.CountMax
 			if postData.Query.Terms.TimeAfter < 0 {
 				start = blocc.ParseUnixTime(time.Now().Unix() + postData.Query.Terms.TimeAfter)
 			} else if postData.Query.Terms.TimeAfter != 0 {
