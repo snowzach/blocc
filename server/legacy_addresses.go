@@ -73,10 +73,12 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 			page = cast.ToInt(r.URL.Query().Get("page"))
 			if page <= 0 {
 				page = 1
-			}
-			perPage = cast.ToInt(r.URL.Query().Get("perPage"))
-			if perPage <= 0 {
 				perPage = store.CountMax
+			} else {
+				perPage = cast.ToInt(r.URL.Query().Get("perPage"))
+				if perPage <= 0 {
+					perPage = s.defaultCount
+				}
 			}
 			// page = 1
 			// perPage = store.CountMax
