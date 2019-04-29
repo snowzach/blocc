@@ -27,10 +27,25 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 		VOut         int64  `json:"vout"`
 	}
 
+	paginateSlice := func(x []*AddressTransaction, skip int, size int) []*AddressTransaction {
+		if skip > len(x) {
+			skip = len(x)
+		}
+
+		end := skip + size
+		if end > len(x) {
+			end = len(x)
+		}
+
+		return x[skip:end]
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		var page int
 		var perPage int
+		var slicePerPage int
+		var slicePage int
 		var start *time.Time
 		var end *time.Time
 		var addresses []string
@@ -70,18 +85,8 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 				render.Render(w, r, ErrInvalidRequest(fmt.Errorf("You need to provide at least one address")))
 			}
 
-			page = cast.ToInt(r.URL.Query().Get("page"))
-			if page <= 0 {
-				page = 1
-				perPage = store.CountMax
-			} else {
-				perPage = cast.ToInt(r.URL.Query().Get("perPage"))
-				if perPage <= 0 {
-					perPage = s.defaultCount
-				}
-			}
-			// page = 1
-			// perPage = store.CountMax
+			page = 1
+			perPage = store.CountMax
 			if postData.Query.Terms.TimeAfter < 0 {
 				start = blocc.ParseUnixTime(time.Now().Unix() + postData.Query.Terms.TimeAfter)
 			} else if postData.Query.Terms.TimeAfter != 0 {
@@ -98,6 +103,7 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 		}
 
 		ret := make([]*AddressTransaction, 0)
+		sliceRet := make([]*AddressTransaction, 0)
 
 		for _, tx := range txs {
 			for _, address := range addresses {
@@ -149,7 +155,20 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 			}
 		}
 
-		render.JSON(w, r, ret)
+		//Simple offset / count strategy for delivering a portion of the addressTx result set.
+		slicePage = cast.ToInt(r.URL.Query().Get("page"))
+		if slicePage <= 0 {
+			slicePage = 1
+			slicePerPage = store.CountMax
+		} else {
+			slicePerPage = cast.ToInt(r.URL.Query().Get("perPage"))
+			if slicePerPage <= 0 {
+				slicePerPage = s.defaultCount
+			}
+		}
+		sliceRet = paginateSlice(ret, (slicePage-1)*slicePerPage, slicePerPage)
+
+		render.JSON(w, r, sliceRet)
 	}
 
 }
