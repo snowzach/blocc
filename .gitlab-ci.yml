@@ -36,7 +36,7 @@ stages:
 
 .k8s-deploy: &branch-deploy
   script: |
-    export CURRENT_IMAGE=$(kubectl -n ${CI_ENVIRONMENT_SLUG}-public get deployment ${CI_PROJECT_NAME}-server -o=jsonpath='{$.spec.template.spec.containers[1].image}')
+    export CURRENT_IMAGE=$(kubectl -n ${CI_ENVIRONMENT_SLUG}-public get deployment ${CI_PROJECT_NAME}-server -o=jsonpath='{$.spec.template.spec.containers[0].image}')
     if [[ "${CURRENT_IMAGE}" != "${CONTAINER_BRANCH_IMAGE}" ]]; then
       echo "current image '${CURRENT_IMAGE}' is not '${CONTAINER_BRANCH_IMAGE}'"
       kubectl -n ${CI_ENVIRONMENT_SLUG}-public set image deployment/${CI_PROJECT_NAME}-server ${CI_PROJECT_NAME}=${CONTAINER_BRANCH_IMAGE} --record
@@ -53,7 +53,7 @@ stages:
 
 .k8s-deploy: &tag-deploy
   script: |
-    export CURRENT_IMAGE=$(kubectl -n ${CI_ENVIRONMENT_SLUG}-public get deployment ${CI_PROJECT_NAME}-server -o=jsonpath='{$.spec.template.spec.containers[1].image}')
+    export CURRENT_IMAGE=$(kubectl -n ${CI_ENVIRONMENT_SLUG}-public get deployment ${CI_PROJECT_NAME}-server -o=jsonpath='{$.spec.template.spec.containers[0].image}')
     if [[ "${CURRENT_IMAGE}" != "${CONTAINER_TAGGED_IMAGE}" ]]; then
       echo "current image '${CURRENT_IMAGE}' is not '${CONTAINER_TAGGED_IMAGE}'"
       kubectl -n ${CI_ENVIRONMENT_SLUG}-public set image deployment/${CI_PROJECT_NAME}-server ${CI_PROJECT_NAME}=${CONTAINER_TAGGED_IMAGE} --record
@@ -69,7 +69,7 @@ stages:
 
 .k8s-deploy: &latest-deploy
   script: |
-    export CURRENT_IMAGE=$(kubectl -n ${CI_ENVIRONMENT_SLUG}-public get deployment ${CI_PROJECT_NAME}-server -o=jsonpath='{$.spec.template.spec.containers[1].image}')
+    export CURRENT_IMAGE=$(kubectl -n ${CI_ENVIRONMENT_SLUG}-public get deployment ${CI_PROJECT_NAME}-server -o=jsonpath='{$.spec.template.spec.containers[0].image}')
     if [[ "${CURRENT_IMAGE}" != "${CONTAINER_LATEST_IMAGE}" ]]; then
       echo "current image '${CURRENT_IMAGE}' is not '${CONTAINER_LATEST_IMAGE}'"
       kubectl -n ${CI_ENVIRONMENT_SLUG}-public set image deployment/${CI_PROJECT_NAME}-server ${CI_PROJECT_NAME}=${CONTAINER_LATEST_IMAGE} --record
