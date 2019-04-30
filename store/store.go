@@ -6,7 +6,7 @@ import (
 
 const (
 	// Used by things that have offset/count to indicate we want as much as we can get
-	CountMax = -1
+	CountMax = 10000
 )
 
 type DistCache interface {
