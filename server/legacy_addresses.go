@@ -160,13 +160,19 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 		slicePage = cast.ToInt(r.URL.Query().Get("page"))
 		if slicePage <= 0 {
 			slicePage = 1
-			slicePerPage = store.CountMax
+			if method == http.MethodGet {
+				slicePerPage = s.defaultCount
+			} else {
+				slicePerPage = store.CountMax
+			}
+
 		} else {
 			slicePerPage = cast.ToInt(r.URL.Query().Get("perPage"))
 			if slicePerPage <= 0 {
 				slicePerPage = s.defaultCount
 			}
 		}
+		fmt.Println(slicePerPage)
 		sliceRet = paginateSlice(ret, (slicePage-1)*slicePerPage, slicePerPage)
 
 		render.JSON(w, r, sliceRet)
