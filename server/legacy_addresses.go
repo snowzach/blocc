@@ -27,6 +27,19 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 		VOut         int64  `json:"vout"`
 	}
 
+	paginateSlice := func(x []*AddressTransaction, skip int, size int) []*AddressTransaction {
+		if skip > len(x) {
+			skip = len(x)
+		}
+
+		end := skip + size
+		if end > len(x) {
+			end = len(x)
+		}
+
+		return x[skip:end]
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		var page int
@@ -35,6 +48,8 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 		var start *time.Time
 		var end *time.Time
 		var addresses []string
+		var respPerPage int //Used for paginated response
+		var respPage int
 
 		switch method {
 		case http.MethodGet:
@@ -71,8 +86,31 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 				render.Render(w, r, ErrInvalidRequest(fmt.Errorf("You need to provide at least one address")))
 			}
 
+			//ES returns a collection of transactions that may contain one or more of the queried addresses. This can be 1 to many.
+			//This endpoint returns a colleciton of addressTransactions.
+			//AddressTransactions are 1:1 address/tx
+			//Due to this, we want ES to page our results using ES if we only query one address (GET request) and paginate our collection here if the query has multiple addresses.
+
+			respPage = cast.ToInt(r.URL.Query().Get("page"))
+			if respPage <= 0 {
+				respPage = 1
+				if method == http.MethodGet {
+					respPerPage = s.defaultCount
+				} else {
+					respPerPage = store.CountMax
+				}
+
+			} else {
+				respPerPage = cast.ToInt(r.URL.Query().Get("perPage"))
+				if respPerPage <= 0 {
+					respPerPage = s.defaultCount
+				}
+			}
+
+			//Return all ES results on one page.
 			page = 1
 			perPage = store.CountMax
+
 			if postData.Query.Terms.TimeAfter < 0 {
 				start = blocc.ParseUnixTime(time.Now().Unix() + postData.Query.Terms.TimeAfter)
 			} else if postData.Query.Terms.TimeAfter != 0 {
@@ -87,8 +125,9 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 			render.Render(w, r, ErrInvalidRequest(err))
 			return
 		}
-
+		// fmt.Println(len(txs))
 		ret := make([]*AddressTransaction, 0)
+		respReturn := make([]*AddressTransaction, 0)
 
 		for _, tx := range txs {
 			for _, address := range addresses {
@@ -140,42 +179,13 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 			}
 		}
 
-		//Simple offset / count strategy for delivering a portion of the addressTx result set.
-		var slicePerPage int
-		var slicePage int
-		sliceRet := make([]*AddressTransaction, 0)
-		paginateSlice := func(x []*AddressTransaction, skip int, size int) []*AddressTransaction {
-			if skip > len(x) {
-				skip = len(x)
-			}
-
-			end := skip + size
-			if end > len(x) {
-				end = len(x)
-			}
-
-			return x[skip:end]
-		}
-
-		slicePage = cast.ToInt(r.URL.Query().Get("page"))
-		if slicePage <= 0 {
-			slicePage = 1
-			if method == http.MethodGet {
-				slicePerPage = s.defaultCount
-			} else {
-				slicePerPage = store.CountMax
-			}
-
+		if method == http.MethodPost {
+			respReturn = paginateSlice(ret, (respPage-1)*respPerPage, respPerPage)
 		} else {
-			slicePerPage = cast.ToInt(r.URL.Query().Get("perPage"))
-			if slicePerPage <= 0 {
-				slicePerPage = s.defaultCount
-			}
+			respReturn = ret
 		}
-		fmt.Println(slicePerPage)
-		sliceRet = paginateSlice(ret, (slicePage-1)*slicePerPage, slicePerPage)
 
-		render.JSON(w, r, sliceRet)
+		render.JSON(w, r, respReturn)
 	}
 
 }
