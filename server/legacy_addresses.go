@@ -27,25 +27,11 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 		VOut         int64  `json:"vout"`
 	}
 
-	paginateSlice := func(x []*AddressTransaction, skip int, size int) []*AddressTransaction {
-		if skip > len(x) {
-			skip = len(x)
-		}
-
-		end := skip + size
-		if end > len(x) {
-			end = len(x)
-		}
-
-		return x[skip:end]
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		var page int
 		var perPage int
-		var slicePerPage int
-		var slicePage int
+
 		var start *time.Time
 		var end *time.Time
 		var addresses []string
@@ -103,7 +89,6 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 		}
 
 		ret := make([]*AddressTransaction, 0)
-		sliceRet := make([]*AddressTransaction, 0)
 
 		for _, tx := range txs {
 			for _, address := range addresses {
@@ -156,6 +141,22 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 		}
 
 		//Simple offset / count strategy for delivering a portion of the addressTx result set.
+		var slicePerPage int
+		var slicePage int
+		sliceRet := make([]*AddressTransaction, 0)
+		paginateSlice := func(x []*AddressTransaction, skip int, size int) []*AddressTransaction {
+			if skip > len(x) {
+				skip = len(x)
+			}
+
+			end := skip + size
+			if end > len(x) {
+				end = len(x)
+			}
+
+			return x[skip:end]
+		}
+
 		slicePage = cast.ToInt(r.URL.Query().Get("page"))
 		if slicePage <= 0 {
 			slicePage = 1
