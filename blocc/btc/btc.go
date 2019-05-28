@@ -65,6 +65,9 @@ type Extractor struct {
 	// Sync Setting for requesting/waiting for headers to be returns
 	waitHeaders chan struct{}
 
+	// A flag to indicate the last processed block had an unknown height
+	lastBlockHeightUnknown bool
+
 	sync.WaitGroup
 	sync.RWMutex
 }
@@ -280,6 +283,11 @@ func (e *Extractor) Connect() error {
 		peerConfig.Listeners.OnRead = e.OnRead
 		peerConfig.Listeners.OnWrite = e.OnWrite
 	}
+
+	// Reset extractor state
+	e.Lock()
+	e.lastBlockHeightUnknown = false
+	e.Unlock()
 
 	// Create peer connection
 	e.peer, err = peer.NewOutboundPeer(peerConfig, net.JoinHostPort(config.GetString("extractor.btc.host"), config.GetString("extractor.btc.port")))

@@ -58,6 +58,18 @@ func (e *Extractor) fetchBlockChain() {
 			e.logger.Info("Validating/Flushing BlockChainStore")
 			lastValidateBlockChain = loopStartTime
 
+			// If we are caught up on the block chain, but the last processed block was invalid, there is a state issue
+			// between the bitcoind node and blocc. Disconnect and reset the state, and re-download all the recent blocks
+			e.RLock()
+			if valid.Height >= peerBlockHeight-1 && e.lastBlockHeightUnknown {
+				e.logger.Info("Unknown height blocks detected on caught up BlockChain. Resetting Connection.")
+				e.RUnlock()
+				e.peer.Disconnect()
+				time.Sleep(time.Second)
+				continue
+			}
+			e.RUnlock()
+
 			// Check for the highest valid block
 			var newValid *blocc.BlockHeader
 			var err error
