@@ -284,6 +284,10 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 	bh := blk.BlockHeader()
 	// This will also update the block store height that it's complete (and transactions are there to match)
 	if blk.Height != blocc.HeightUnknown {
+		e.Lock()
+		e.lastBlockHeightUnknown = false
+		e.Unlock()
+
 		err := e.blockChainStore.InsertBlock(Symbol, blk)
 		if err != nil {
 			e.logger.Errorw("Could not blockChainStore.InsertBlock", "error", err)
@@ -307,6 +311,13 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 			e.blockChainStore.FlushBlocks(Symbol)
 			e.blockChainStore.FlushTransactions(Symbol)
 		}
+	} else {
+		// Mark that the last processed block has height unknown
+		// If we are caught up with the blockchain this indicates a problem with the most recent blocks and we need to
+		// disconnect and reconnect to reset state
+		e.Lock()
+		e.lastBlockHeightUnknown = true
+		e.Unlock()
 	}
 	e.blockHeaderTxMon.AddBlockHeader(bh, e.blockHeaderTxMonBHLifetime)
 
