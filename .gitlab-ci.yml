@@ -4,10 +4,6 @@ variables:
   CONTAINER_TAGGED_IMAGE: $CI_REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_TAG
   DOCKER_HOST: tcp://127.0.0.1:2375
 
-cache:
-  paths:
-    - .cache
-
 stages:
   - test
   - build
@@ -85,6 +81,10 @@ stages:
 test:
   stage: test
   image: golang:1.11-alpine3.8
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cache
   script:
     - apk add --update-cache make git protobuf protobuf-dev curl
     - mkdir -p .cache

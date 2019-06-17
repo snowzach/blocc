@@ -159,6 +159,7 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx, 
 		txs.Fee = txs.InputValue - txs.OutputValue
 	}
 	tx.Data["fee"] = cast.ToString(txs.Fee)
+	tx.Metric["fee"] = cast.ToFloat64(txs.Fee)
 
 	// If this transaction came as part of a block, add block metadata
 	if blk != nil {
@@ -174,6 +175,14 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx, 
 		tx.BlockHeight = blocc.HeightUnknown
 		tx.Time = time.Now().UTC().Unix()
 		tx.Data["received_time"] = cast.ToString(time.Now().UTC().Unix())
+
+		// Start accumulating metrics as numbers for calculations/fees
+		tx.Metric["received_time"] = cast.ToFloat64(time.Now().UTC().Unix())
+		e.Lock()
+		if !e.lastBlockHeightUnknown {
+			tx.Metric["received_block_height"] = cast.ToFloat64(e.peer.LastBlock())
+		}
+		e.Unlock()
 
 		// Send it on the TxBus
 		if e.txBus != nil {

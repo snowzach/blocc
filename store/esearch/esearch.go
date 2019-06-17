@@ -89,6 +89,7 @@ func New() (*esearch, error) {
 		esOptions = append(esOptions,
 			elastic.SetSniff(true),
 			elastic.SetSnifferCallback(func(node *elastic.NodesInfoNode) bool {
+				e.logger.Debugw("Elastic Sniffer", "node_name", node.Name, "node_ip", node.IP, "node_roles", node.Roles)
 				// If this node has only one role (master) don't use it for requests
 				if len(node.Roles) == 1 && node.Roles[0] == "master" {
 					return false

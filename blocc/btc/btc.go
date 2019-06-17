@@ -309,7 +309,7 @@ func (e *Extractor) Connect() error {
 		return fmt.Errorf("Never got verack ready message")
 	}
 
-	e.logger.Infow("Connected to peer", "peer", e.peer.Addr(), "height", e.peer.StartingHeight(), "last_block", e.peer.LastBlock())
+	e.logger.Infow("Connected to peer", "peer", e.peer.Addr(), "height", e.peer.StartingHeight(), "last_block_height", e.peer.LastBlock())
 
 	return nil
 
@@ -406,9 +406,23 @@ func (e *Extractor) RequestBlocks(start string, stop string) error {
 // OnBlock is called when we receive a block message
 func (e *Extractor) OnBlock(p *peer.Peer, msg *wire.MsgBlock, buf []byte) {
 
-	// If we're only handling transactions, we can ignore blocks
-	// The transactions will be overritten in the blockChainStore with the block information
+	// If we're only handling transaction, all we really need is the block height
 	if e.txFetch {
+		// Fetch the previous block, use it's height to update the current block height being saved for mempool transactions
+		prevBlk, err := e.blockChainStore.GetBlockByBlockId(Symbol, msg.Header.PrevBlock.String(), blocc.BlockIncludeHeader)
+		if err == blocc.ErrNotFound {
+			e.Lock()
+			e.lastBlockHeightUnknown = true
+			e.Unlock()
+			return
+		} else if err != nil {
+			e.logger.Errorf("Error OnBlock e.GetBlockByBlockId: %v", err)
+			return
+		}
+		e.Lock()
+		e.lastBlockHeightUnknown = false
+		e.Unlock()
+		e.peer.UpdateLastBlockHeight(int32(prevBlk.Height + 1))
 		return
 	}
 	// Otherwise handle the block
