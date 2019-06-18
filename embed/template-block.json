@@ -12,7 +12,7 @@
       "dynamic_templates": [
         {
           "data": {
-            "match": "data.*",
+            "path_match": "data.*",
             "mapping": {
               "index": false,
               "norms": false,
@@ -24,7 +24,7 @@
         },
         {
           "metric": {
-            "match": "metric.*",
+            "path_match": "metric.*",
             "mapping": {
               "doc_values": false,
               "fielddata": false,
