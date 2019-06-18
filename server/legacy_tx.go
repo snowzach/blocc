@@ -135,6 +135,7 @@ func (s *Server) LegacyFindTxIds() http.HandlerFunc {
 				Terms struct {
 					TxID []string `json:"txid"`
 				} `json:"terms"`
+				Missing bool `json:"missing"`
 			} `json:"query"`
 		}
 		if err := render.DecodeJSON(r.Body, &postData); err != nil {
@@ -143,6 +144,40 @@ func (s *Server) LegacyFindTxIds() http.HandlerFunc {
 		}
 		if len(postData.Query.Terms.TxID) == 0 {
 			render.Render(w, r, ErrInvalidRequest(fmt.Errorf("You need to provide at least one txid")))
+		}
+
+		// We only care about finding a list of the missing IDs (transactions expired or removed)
+		if postData.Query.Missing {
+
+			// Create the map of txids we are searching for
+			txids := make(map[string]struct{})
+			for _, txid := range postData.Query.Terms.TxID {
+				txids[txid] = struct{}{}
+			}
+
+			s.logger.Info(txids)
+
+			// Get txs
+			txs, err := s.blockChainStore.GetTxsByTxIds(btc.Symbol, postData.Query.Terms.TxID, blocc.TxIncludeHeader)
+			if err != nil && err != blocc.ErrNotFound {
+				render.Render(w, r, ErrInvalidRequest(err))
+				return
+			}
+
+			// Remove it from the list
+			for _, tx := range txs {
+				delete(txids, tx.TxId)
+			}
+
+			// Make the list of missing txids
+			ret := make([]string, 0, len(txids))
+			for txid := range txids {
+				ret = append(ret, txid)
+			}
+
+			render.JSON(w, r, ret)
+			return
+
 		}
 
 		// Get txs
