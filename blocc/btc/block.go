@@ -186,8 +186,9 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 	}
 
 	var blks blockStat
+	var txFeeList []float64
+	var txFeeVSizeList []float64
 
-	var txFeeList []int64
 	blks.MinFee = int64((^uint64(0)) >> 1) // Max int64 = 9223372036854775807
 
 	// Iterate through and process transactions
@@ -208,7 +209,10 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 				blks.HasFee = true
 				blks.Fee += txs.Fee
 				if txs.Fee > 0 {
-					txFeeList = append(txFeeList, txs.Fee)
+					txFeeList = append(txFeeList, float64(txs.Fee))
+				}
+				if txs.FeeVSize > 0 {
+					txFeeVSizeList = append(txFeeVSizeList, txs.FeeVSize)
 				}
 
 				if txs.Fee < blks.MinFee {
@@ -241,33 +245,28 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 		blk.Data["input_missing"] = cast.ToString(blks.InputMissing)
 		blk.Status = blocc.StatusInvalid
 	}
-	if blks.HasFee {
+	if blks.HasFee && blks.TxCount > 1 { // There is a transaction that is non-coinbase
 		blk.Data["fee"] = cast.ToString(blks.Fee)
 		blk.Data["fee_min"] = cast.ToString(blks.MinFee)
-
-		quartileFees, err := stats.Quartile(stats.LoadRawData(txFeeList))
-		if err != nil {
-			blk.Data["fee_lower_quartile"] = cast.ToString(blks.MinFee)
-		} else {
-			blk.Data["fee_lower_quartile"] = cast.ToString(float32(quartileFees.Q1))
-		}
-
 		blk.Data["fee_max"] = cast.ToString(blks.MaxFee)
-		if blks.TxCount < 2 {
-			// We don't count the coinbase in the fees calculation because it does have a fee associated
-			blk.Data["fee_avg"] = cast.ToString(blks.Fee)
-			blk.Data["fee_median"] = cast.ToString(blks.Fee)
-		} else {
-			blk.Data["fee_avg"] = cast.ToString(float32(blks.Fee) / float32(blks.TxCount-1))
-			//Get median fee. If this fails for some reason, fall back to mean calculation.
-			medianFee, err := stats.Median(stats.LoadRawData(txFeeList))
-			if err != nil {
-				blk.Data["fee_median"] = cast.ToString(float32(blks.Fee) / float32(blks.TxCount-1))
-			} else {
+		blk.Data["fee_avg"] = cast.ToString(float32(blks.Fee) / float32(blks.TxCount-1))
 
-				blk.Data["fee_median"] = cast.ToString(float32(medianFee))
-			}
+		// Get median fee. If this fails for some reason, fall back to mean calculation.
+		if medianFee, err := stats.Median(txFeeList); err != nil {
+			// Use the average fee as a fallback
+			blk.Data["fee_median"] = cast.ToString(float32(blks.Fee) / float32(blks.TxCount-1))
+		} else {
+			blk.Data["fee_median"] = cast.ToString(float32(medianFee))
 		}
+
+		// Calculate a few percentiles of the fee/vsize
+		if p10, err := stats.Percentile(txFeeVSizeList, 10.0); err == nil {
+			blk.Metric["fee_vsize_p10"] = p10
+		}
+		if p5, err := stats.Percentile(txFeeVSizeList, 5.0); err == nil {
+			blk.Metric["fee_vsize_p5"] = p5
+		}
+
 	} else {
 		// No fees, OVER THE LINE! MARK IT ZERO DUDE
 		blk.Data["fee"] = "0"
@@ -275,7 +274,6 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 		blk.Data["fee_max"] = "0"
 		blk.Data["fee_avg"] = "0"
 		blk.Data["fee_median"] = "0"
-		blk.Data["fee_lower_quartile"] = "0"
 	}
 
 	e.logger.Infow("Handled Block", "block_id", blk.BlockId, "height", blk.Height)

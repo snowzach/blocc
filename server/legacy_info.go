@@ -62,14 +62,10 @@ func (s *Server) LegacyGetBlockChainInfo(path int) http.HandlerFunc {
 			if cast.ToInt64(blk.DataValue("fee")) == 0 {
 				continue
 			}
-			medianValue := blk.DataValue("fee_median")
-			if len(medianValue) > 0 {
-				if cast.ToFloat64(medianValue) < cast.ToFloat64(blk.DataValue("fee_avg")) {
-					info.Fees.Avg += cast.ToFloat64(medianValue)
-				} else {
-					info.Fees.Avg += cast.ToFloat64(blk.DataValue("fee_avg"))
-				}
-
+			// Use the median or the average for the fee, whichever is lower
+			median := cast.ToFloat64(blk.DataValue("fee_median"))
+			if median > 0 && median < cast.ToFloat64(blk.DataValue("fee_avg")) {
+				info.Fees.Avg += median
 			} else {
 				info.Fees.Avg += cast.ToFloat64(blk.DataValue("fee_avg"))
 			}

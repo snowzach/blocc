@@ -20,6 +20,7 @@ type txStat struct {
 	InputValue   int64
 	OutputValue  int64
 	Fee          int64
+	FeeVSize     float64
 }
 
 // handleTx is called to handle transaction both when sent from the peer as part of the mempool or when parsing block
@@ -155,12 +156,13 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx, 
 	// If it's a coinbase or we couldn't find an input, mark the fee as zero otherwise it's some negative number messing everything up
 	if txs.Coinbase || txs.InputMissing {
 		txs.Fee = 0
+		txs.FeeVSize = 0
 	} else {
 		txs.Fee = txs.InputValue - txs.OutputValue
+		txs.FeeVSize = float64(txs.Fee) / ((float64(weight) + 3) / 4) // = fee / vsize
 	}
 	tx.Data["fee"] = cast.ToString(txs.Fee)
-	tx.Metric["fee"] = cast.ToFloat64(txs.Fee)
-	tx.Metric["fee_rate"] = cast.ToFloat64(txs.Fee / ((weight + 3) / 4)) // = fee / vsize
+	tx.Metric["fee_vsize"] = txs.FeeVSize
 
 	// If this transaction came as part of a block, add block metadata
 	if blk != nil {
@@ -178,10 +180,9 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx, 
 		tx.Data["received_time"] = cast.ToString(time.Now().UTC().Unix())
 
 		// Start accumulating metrics as numbers for calculations/fees
-		tx.Metric["received_time"] = cast.ToFloat64(time.Now().UTC().Unix())
 		e.Lock()
 		if !e.lastBlockHeightUnknown {
-			tx.Metric["received_block_height"] = cast.ToFloat64(e.peer.LastBlock())
+			tx.Data["received_block_height"] = cast.ToString(e.peer.LastBlock())
 		}
 		e.Unlock()
 
