@@ -261,10 +261,7 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 
 		// Calculate a few percentiles of the fee/vsize
 		if p10, err := stats.Percentile(txFeeVSizeList, 10.0); err == nil {
-			blk.Metric["fee_vsize_p10"] = p10
-		}
-		if p5, err := stats.Percentile(txFeeVSizeList, 5.0); err == nil {
-			blk.Metric["fee_vsize_p5"] = p5
+			blk.Data["fee_vsize_p10"] = cast.ToString(p10)
 		}
 
 	} else {
