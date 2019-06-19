@@ -162,7 +162,7 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx, 
 		txs.FeeVSize = float64(txs.Fee) / ((float64(weight) + 3) / 4) // = fee / vsize
 	}
 	tx.Data["fee"] = cast.ToString(txs.Fee)
-	tx.Metric["fee_vsize"] = txs.FeeVSize
+	tx.Data["fee_vsize"] = cast.ToString(txs.FeeVSize)
 
 	// If this transaction came as part of a block, add block metadata
 	if blk != nil {
