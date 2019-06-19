@@ -15,7 +15,7 @@
             "path_match": "data.*",
             "mapping": {
               "norms": false,
-              "doc_values": false,
+              "doc_values": true,
               "fielddata": false,
               "type": "keyword"
             }
@@ -25,10 +25,9 @@
           "metric": {
             "path_match": "metric.*",
             "mapping": {
-              "doc_values": false,
-              "fielddata": false,
-              "index": false,
               "norms": false,
+              "doc_values": true,
+              "fielddata": false,
               "type": "double"
             }
           }
