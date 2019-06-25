@@ -24,6 +24,10 @@ func (s *Server) LegacyGetBlockChainInfo(path int) http.HandlerFunc {
 		Avg float64 `json:"avg"`
 		Min float64 `json:"min"`
 		Max float64 `json:"max"`
+
+		Fast float64 `json:"fast"`
+		Med  float64 `json:"med"`
+		Slow float64 `json:"slow"`
 	}
 
 	type blockChainInfo struct {
@@ -62,6 +66,7 @@ func (s *Server) LegacyGetBlockChainInfo(path int) http.HandlerFunc {
 			if cast.ToInt64(blk.DataValue("fee")) == 0 {
 				continue
 			}
+
 			// Use the median or the average for the fee, whichever is lower
 			median := cast.ToFloat64(blk.DataValue("fee_median"))
 			if median > 0 && median < cast.ToFloat64(blk.DataValue("fee_avg")) {
@@ -100,9 +105,52 @@ func (s *Server) LegacyGetBlockChainInfo(path int) http.HandlerFunc {
 			info.Fees.Max = maxMaxFee
 		}
 
+		// The fast fee will be the average of the 10th percentile of the last 3 blocks
+		info.Fees.Fast, err = s.blockChainStore.AverageBlockDataFieldByHeight(btc.Symbol, "data.fee_vsize_p10", true, info.Blocks-4, blocc.HeightUnknown)
+		if err == blocc.ErrNotFound {
+			info.Fees.Fast = info.Fees.Avg
+		} else if err != nil {
+			render.Render(w, r, s.ErrInternalLog(fmt.Errorf("Error AverageBlockDataFieldByHeight: %v", err)))
+			return
+		}
+
+		// The medium fee will be the average of the 10th percentile of the last 10 blocks
+		info.Fees.Med, err = s.blockChainStore.AverageBlockDataFieldByHeight(btc.Symbol, "data.fee_vsize_p10", true, info.Blocks-10, blocc.HeightUnknown)
+		if err == blocc.ErrNotFound {
+			info.Fees.Med = info.Fees.Avg
+		} else if err != nil {
+			render.Render(w, r, s.ErrInternalLog(fmt.Errorf("Error AverageBlockDataFieldByHeight: %v", err)))
+			return
+		} else {
+			// If the fast fee is better than this fee, use it instead
+			if info.Fees.Fast < info.Fees.Med {
+				info.Fees.Med = info.Fees.Fast
+			}
+		}
+
+		// The slow fee will be the 10th percentile of the 10th percentile of the last 144 blocks
+		info.Fees.Slow, err = s.blockChainStore.PercentileBlockDataFieldByHeight(btc.Symbol, "data.fee_vsize_p10", 10.0, true, info.Blocks-145, blocc.HeightUnknown)
+		if err == blocc.ErrNotFound {
+			info.Fees.Slow = info.Fees.Avg
+		} else if err != nil {
+			render.Render(w, r, s.ErrInternalLog(fmt.Errorf("Error PercentileBlockDataFieldByHeight: %v", err)))
+			return
+		} else {
+			// If the fast fee is better than this fee, use it instead
+			if info.Fees.Med < info.Fees.Slow {
+				info.Fees.Slow = info.Fees.Med
+			}
+		}
+
 		// Quick and dirty hack to provide the average fee as the minimum one since this is what the drop bit app uses
 		if config.GetBool("server.legacy.btc_avg_fee_as_min") {
 			info.Fees.Min = info.Fees.Avg
+		}
+
+		// This will substitute the p10 fees for the average and min fees
+		if config.GetBool("server.legacy.btc_use_p10_fee") {
+			info.Fees.Min = info.Fees.Fast
+			info.Fees.Avg = info.Fees.Fast
 		}
 
 		if path == blockChainInfoPathFees {
