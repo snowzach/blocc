@@ -45,6 +45,7 @@ func init() {
 	config.SetDefault("server.legacy.btc_min_fee_max", 100)
 	config.SetDefault("server.legacy.btc_avg_fee_max", 500)
 	config.SetDefault("server.legacy.btc_max_fee_max", -1)
+	config.SetDefault("server.legacy.btc_use_p10_fee", false)
 
 	// Set Defaults - Elasticsearch
 	config.SetDefault("elasticsearch.request_log", false)

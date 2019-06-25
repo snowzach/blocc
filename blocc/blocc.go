@@ -95,6 +95,11 @@ type BlockChainStore interface {
 	FindTxsByAddressesAndTime(symbol string, addresses []string, start *time.Time, end *time.Time, filter int, include TxInclude, offset int, count int) ([]*Tx, error)
 	// Find transactions by txids and time period, order by time descending -
 	FindTxsByTxIdsAndTime(symbol string, txIds []string, start *time.Time, end *time.Time, include TxInclude, offset int, count int) ([]*Tx, error)
+
+	// This will calculate the average of a data field between block heights
+	AverageBlockDataFieldByHeight(symbol string, field string, omitZero bool, startHeight int64, endHeight int64) (float64, error)
+	// This will calculate the percentile value of a datafield between block heights
+	PercentileBlockDataFieldByHeight(symbol string, field string, percentile float64, omitZero bool, startHeight int64, endHeight int64) (float64, error)
 }
 
 // BlockHeaderCache is used to cache block headers and determine height from the block chain follower based on the values provided
