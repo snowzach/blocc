@@ -130,6 +130,10 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 		respReturn := make([]*AddressTransaction, 0)
 
 		for _, tx := range txs {
+
+			// Fix any issues with the inputs if there are some
+			s.txCheckInputs(tx)
+
 			for _, address := range addresses {
 				found := false
 

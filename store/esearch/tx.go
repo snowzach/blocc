@@ -20,8 +20,9 @@ func (e *esearch) InsertTransaction(symbol string, t *blocc.Tx) error {
 		Id(t.TxId).
 		Doc(t)
 
-	request.Source() // Turn it into JSON such that we can modify the tx
-
+	// Turn it into JSON such that we can modify the tx
+	request.Source()
+	// Add it to the bulk handler
 	e.bulk.Add(request)
 
 	return nil
@@ -37,6 +38,7 @@ func (e *esearch) UpsertTransaction(symbol string, t *blocc.Tx) error {
 		Id(t.TxId).
 		Doc(t).
 		DocAsUpsert(true)
+
 	// Turn it into JSON such that we can modify the tx
 	request.Source()
 	// Add it to the bulk handler
@@ -194,24 +196,38 @@ func (e *esearch) GetTxCountByBlockId(symbol string, blockId string) (int64, err
 	return int64(res.Hits.TotalHits), nil
 }
 
-// FindTxsByTxIdsAndTime will find multiple transactions by optionally multiple txids, time and pagination
-func (e *esearch) FindTxsByTxIdsAndTime(symbol string, txIds []string, start *time.Time, end *time.Time, include blocc.TxInclude, offset int, count int) ([]*blocc.Tx, error) {
+// FindTxs will find multiple transactions by optionally multiple fields
+func (e *esearch) FindTxs(symbol string, txIds []string, blockId string, dataFields map[string]string, start *time.Time, end *time.Time, include blocc.TxInclude, offset int, count int) ([]*blocc.Tx, error) {
 
 	e.throttleSearches <- struct{}{}
 	defer func() {
 		<-e.throttleSearches
 	}()
 
-	// Convert it to an interface
-	txidsInterface := make([]interface{}, len(txIds), len(txIds))
-	for i, txid := range txIds {
-		txidsInterface[i] = txid
-	}
-
 	query := elastic.NewBoolQuery()
-	if len(txidsInterface) != 0 {
+
+	// Handle txIds
+	if len(txIds) > 0 {
+		// Convert it to an interface
+		txidsInterface := make([]interface{}, len(txIds), len(txIds))
+		for i, txid := range txIds {
+			txidsInterface[i] = txid
+		}
 		query.Filter(elastic.NewTermsQuery("_id", txidsInterface...))
 	}
+
+	// Handle blockId
+	if blockId != "" {
+		query.Filter(elastic.NewTermQuery("block_id", blockId))
+	}
+
+	// Handle data fields
+	if len(dataFields) != 0 {
+		for fieldName, fieldValue := range dataFields {
+			query.Filter(elastic.NewTermQuery("data."+fieldName, fieldValue))
+		}
+	}
+
 	if start != nil && end != nil {
 		query.Filter(elastic.NewRangeQuery("time").From(start.Unix()).To(end.Unix()).IncludeLower(true).IncludeUpper(true))
 	} else if start != nil {
