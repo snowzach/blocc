@@ -94,7 +94,7 @@ type BlockChainStore interface {
 	// Find transactions by address and time period, order by time descending - See filter constants for which addresses you wish to search (inputs or outputs)
 	FindTxsByAddressesAndTime(symbol string, addresses []string, start *time.Time, end *time.Time, filter int, include TxInclude, offset int, count int) ([]*Tx, error)
 	// Find transactions by txids and time period, order by time descending -
-	FindTxsByTxIdsAndTime(symbol string, txIds []string, start *time.Time, end *time.Time, include TxInclude, offset int, count int) ([]*Tx, error)
+	FindTxs(symbol string, txIds []string, blockId string, dataFields map[string]string, start *time.Time, end *time.Time, include TxInclude, offset int, count int) ([]*Tx, error)
 
 	// This will calculate the average of a data field between block heights
 	AverageBlockDataFieldByHeight(symbol string, field string, omitZero bool, startHeight int64, endHeight int64) (float64, error)

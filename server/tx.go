@@ -70,7 +70,7 @@ func (s *Server) FindTransactions(ctx context.Context, input *rpc.Find) (*rpc.Tr
 		include |= blocc.TxIncludeRaw
 	}
 
-	txs, err := s.blockChainStore.FindTxsByTxIdsAndTime(input.Symbol, input.Ids, start, end, include, int(input.Offset), int(input.Count))
+	txs, err := s.blockChainStore.FindTxs(input.Symbol, input.Ids, "", nil, start, end, include, int(input.Offset), int(input.Count))
 	if err != nil && err != blocc.ErrNotFound {
 		s.logger.Errorw("Could not blockChainStore.FindTxsByTxIdsAndTime", "error", err)
 		return nil, grpc.Errorf(codes.Internal, "Could not get blocks")

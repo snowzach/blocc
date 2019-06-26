@@ -27,6 +27,9 @@ func (s *Server) LegacyGetTx() http.HandlerFunc {
 			return
 		}
 
+		// Fix any issues with the inputs if there are some
+		s.txCheckInputs(tx)
+
 		// Return the block
 		render.JSON(w, r, TxToLegacyTx(tx))
 
@@ -96,7 +99,9 @@ func (s *Server) LegacyGetTxStats() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		id := chi.URLParam(r, "id")
-		tx, err := s.blockChainStore.GetTxByTxId(btc.Symbol, id, blocc.TxIncludeHeader|blocc.TxIncludeData)
+		// tx, err := s.blockChainStore.GetTxByTxId(btc.Symbol, id, blocc.TxIncludeHeader|blocc.TxIncludeData)
+		// Need all but raw to repair tx with missing inputs
+		tx, err := s.blockChainStore.GetTxByTxId(btc.Symbol, id, blocc.TxIncludeAllButRaw)
 		if err == blocc.ErrNotFound {
 			render.Render(w, r, ErrNotFound)
 			return
@@ -104,6 +109,9 @@ func (s *Server) LegacyGetTxStats() http.HandlerFunc {
 			render.Render(w, r, ErrInvalidRequest(err))
 			return
 		}
+
+		// Fix any issues with the inputs if there are some
+		s.txCheckInputs(tx)
 
 		ret := &txStats{
 			TxID:      id,
@@ -155,8 +163,6 @@ func (s *Server) LegacyFindTxIds() http.HandlerFunc {
 				txids[txid] = struct{}{}
 			}
 
-			s.logger.Info(txids)
-
 			// Get txs
 			txs, err := s.blockChainStore.GetTxsByTxIds(btc.Symbol, postData.Query.Terms.TxID, blocc.TxIncludeHeader)
 			if err != nil && err != blocc.ErrNotFound {
@@ -190,10 +196,61 @@ func (s *Server) LegacyFindTxIds() http.HandlerFunc {
 		ret := make([]*LegacyTx, len(txs), len(txs))
 
 		for i, tx := range txs {
+
+			// Fix any issues with the inputs if there are some
+			s.txCheckInputs(tx)
+
 			ret[i] = TxToLegacyTx(tx)
 		}
 
 		render.JSON(w, r, ret)
 	}
 
+}
+
+// This will check a transaction for missing inputs
+func (s *Server) txCheckInputs(tx *blocc.Tx) {
+
+	var inValue int64
+	var outValue int64
+	var hadMissing bool
+	var stillMissing bool
+
+	for _, txIn := range tx.In {
+		if txIn.Out == nil {
+			hadMissing = true
+			s.logger.Warnw("Handling Missing", "tx_id", txIn.TxId, "height", txIn.Height)
+			txIn.Out = s.txGetOutput(tx.Symbol, txIn.TxId, txIn.Height)
+		}
+		if txIn.Out == nil {
+			stillMissing = true
+		} else {
+			inValue += txIn.Out.Value
+		}
+	}
+	if hadMissing && !stillMissing {
+		for _, txOut := range tx.Out {
+			outValue += txOut.Value
+		}
+		s.logger.Warnw("Repaired", "tx", tx)
+
+		tx.Data["in_value"] = cast.ToString(inValue)
+		tx.Data["out_value"] = cast.ToString(inValue)
+		tx.Data["fee"] = cast.ToString(inValue - outValue)
+		tx.Data["fee_vsize"] = cast.ToString(float64(inValue-outValue) / cast.ToFloat64(tx.DataValue("vsize")))
+
+	}
+
+}
+
+// This will fetch an output or return nil
+func (s *Server) txGetOutput(symbol string, txId string, height int64) *blocc.TxOut {
+	tx, err := s.blockChainStore.GetTxByTxId(symbol, txId, blocc.TxIncludeOut)
+	if err != nil {
+		return nil
+	}
+	if int64(len(tx.Out)) > height {
+		return tx.Out[height]
+	}
+	return nil
 }
