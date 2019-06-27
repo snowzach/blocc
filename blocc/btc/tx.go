@@ -15,12 +15,12 @@ import (
 )
 
 type txStat struct {
-	Coinbase     bool
-	InputMissing bool
-	InputValue   int64
-	OutputValue  int64
-	Fee          int64
-	FeeVSize     float64
+	Coinbase    bool
+	Incomplete  bool
+	InputValue  int64
+	OutputValue int64
+	Fee         int64
+	FeeVSize    float64
 }
 
 // handleTx is called to handle transaction both when sent from the peer as part of the mempool or when parsing block
@@ -118,7 +118,7 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx, 
 						"height", txIn.Height,
 						"blkheight", blk.GetHeightSafe(),
 					)
-					txs.InputMissing = true
+					txs.Incomplete = true
 				}
 			}
 
@@ -130,7 +130,7 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx, 
 					"blkheight", blk.GetHeightSafe(),
 					"found", found,
 				)
-				txs.InputMissing = true
+				txs.Incomplete = true
 			} else {
 				if int64(len(prevTx.Out)) > txIn.Height {
 					txIn.Out = prevTx.Out[txIn.Height]
@@ -142,7 +142,7 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx, 
 						"blkheight", blk.GetHeightSafe(),
 						"found", found,
 					)
-					txs.InputMissing = true
+					txs.Incomplete = true
 				}
 			}
 		}
@@ -150,11 +150,9 @@ func (e *Extractor) handleTx(blk *blocc.Block, txHeight int64, wTx *wire.MsgTx, 
 
 	// Final TX stats
 	tx.Data["in_value"] = cast.ToString(txs.InputValue)
-	if txs.InputMissing {
-		tx.Data["input_missing"] = cast.ToString(txs.InputMissing)
-	}
+	tx.Incomplete = txs.Incomplete
 	// If it's a coinbase or we couldn't find an input, mark the fee as zero otherwise it's some negative number messing everything up
-	if txs.Coinbase || txs.InputMissing {
+	if txs.Coinbase || txs.Incomplete {
 		txs.Fee = 0
 		txs.FeeVSize = 0
 	} else {

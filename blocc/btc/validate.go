@@ -84,7 +84,7 @@ func (e *Extractor) ValidateBlockChain(symbol string, stopAfter int64) (*blocc.B
 			}
 
 			// For the block, check that all of the transactions exist. Just compare TxCount with the number of stored transactions
-			txCount, err := e.blockChainStore.GetTxCountByBlockId(symbol, blk.BlockId)
+			txCount, err := e.blockChainStore.GetTxCountByBlockId(symbol, blk.BlockId, false)
 			if err != nil {
 				return nil, fmt.Errorf("Could not blockChainStore.GetTxCountByBlockId:%v", err)
 			}
