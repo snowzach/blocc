@@ -58,6 +58,9 @@
         "size": {
           "type": "long"
         },
+        "incomplete": {
+          "type": "boolean"
+        },
         "in": {
           "type": "object",
           "properties": {
