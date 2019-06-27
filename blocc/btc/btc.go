@@ -183,7 +183,8 @@ func Extract(blockChainStore blocc.BlockChainStore, txBus blocc.TxBus) (*Extract
 		if err != nil && err != blocc.ErrNotFound {
 			e.logger.Fatalw("blockChainStore.GetBlockHeaderTopByStatuses", "error", err)
 		}
-		if validBlockHeader == nil || err == blocc.ErrNotFound || validBlockHeader.Height < config.GetInt64("extractor.btc.block_start_height") {
+		// We have no data or we requested to start at a specific height
+		if validBlockHeader == nil || err == blocc.ErrNotFound || config.GetInt64("extractor.btc.block_start_height") != -1 {
 			// Set to the start block if we don't have any or for some reason we were requested to start higher
 			validBlockHeader = &blocc.BlockHeader{
 				BlockId: config.GetString("extractor.btc.block_start_id"),

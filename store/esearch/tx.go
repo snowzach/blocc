@@ -175,17 +175,26 @@ func (e *esearch) GetTxsByBlockId(symbol string, blockId string, include blocc.T
 }
 
 // GetTxCountByBlockId will return the numbner of trasnaction by block Id in the database
-func (e *esearch) GetTxCountByBlockId(symbol string, blockId string) (int64, error) {
+func (e *esearch) GetTxCountByBlockId(symbol string, blockId string, includeIncomplete bool) (int64, error) {
 
 	e.throttleSearches <- struct{}{}
 	defer func() {
 		<-e.throttleSearches
 	}()
 
+	query := elastic.NewBoolQuery().Filter(elastic.NewTermQuery("block_id", blockId))
+
+	// Only include complete blocks by finding incomplete: false or no incomplete field
+	if !includeIncomplete {
+		query.Filter(elastic.NewBoolQuery().
+			Should(elastic.NewTermQuery("incomplete", false)).
+			Should(elastic.NewBoolQuery().MustNot(elastic.NewExistsQuery("incomplete"))))
+	}
+
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeTx, symbol)).
 		Type(DocType).
-		Query(elastic.NewBoolQuery().Filter(elastic.NewTermQuery("block_id", blockId))).
+		Query(query).
 		FetchSource(false).
 		Size(0).
 		Do(e.ctx)

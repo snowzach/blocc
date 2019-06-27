@@ -60,8 +60,10 @@ message Block {
     int64 size = 8 [(gogoproto.customname) = "BlockSize"];
     // Status
     string status = 9;
+    // If data is missing to consider this block complete
+    bool incomplete = 10 [(gogoproto.jsontag) = "incomplete"];
     // Transaction Ids
-    repeated string tx_ids = 10 [(gogoproto.jsontag) = "tx_id"];
+    repeated string tx_ids = 11 [(gogoproto.jsontag) = "tx_id"];
 
 
     // Raw Block Data (base64)
@@ -79,7 +81,7 @@ message Tx {
     // Block Id
     string block_id = 2;
     // Block Height
-    int64 block_height = 3 [(gogoproto.jsontag) = "block_height"]; // Remove omitempty
+    int64 block_height = 3;
     // Block Time
     int64 block_time = 4;
     // Transaction Id
@@ -90,10 +92,12 @@ message Tx {
     int64 time = 7;
     // Size
     int64 size = 9 [(gogoproto.customname) = "TxSize"];
+    // If data is missing to consider this tx complete
+    bool incomplete = 10 [(gogoproto.jsontag) = "incomplete"];
     // Transaction Inputs
-    repeated TxIn in = 10;
+    repeated TxIn in = 11;
     // Transaction Outputs
-    repeated TxOut out = 11;
+    repeated TxOut out = 12;
 
     // Raw Transaction Data (base64)
     bytes raw = 13 [(gogoproto.casttype) = "Raw",(gogoproto.jsontag) = "raw,omitempty"];

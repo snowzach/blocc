@@ -270,10 +270,18 @@ func (e *esearch) FindBlocksByHeight(symbol string, height int64, include blocc.
 		<-e.throttleSearches
 	}()
 
+	query := elastic.NewBoolQuery().Filter(elastic.NewTermQuery("height", height))
+	// If height is zero, we also need to search for blocks with missing height field since it will omitempty
+	if height == 0 {
+		query = elastic.NewBoolQuery().
+			Should(elastic.NewTermQuery("height", height)).
+			Should(elastic.NewBoolQuery().MustNot(elastic.NewExistsQuery("height")))
+	}
+
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeBlock, symbol)).
 		Type(DocType).
-		Query(elastic.NewBoolQuery().Filter(elastic.NewTermQuery("height", height))).
+		Query(query).
 		FetchSourceContext(blockFetchSourceContext(include)).
 		From(0).Size(e.countMax).Do(e.ctx)
 	if err != nil {

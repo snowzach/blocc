@@ -17,10 +17,9 @@ import (
 )
 
 type blockStat struct {
-	InputMissing bool
-	InputValue   int64
-	OutputValue  int64
-	TxCount      int64
+	InputValue  int64
+	OutputValue int64
+	TxCount     int64
 
 	HasFee bool
 	Fee    int64
@@ -224,8 +223,9 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 			} else {
 				blk.Data["coinbase_value"] = cast.ToString(txs.OutputValue)
 			}
-			if txs.InputMissing {
-				blks.InputMissing = true
+			if txs.Incomplete {
+				blk.Incomplete = true
+				blk.Status = blocc.StatusInvalid
 			}
 			blks.Unlock()
 			parsingTransactions.Done()
@@ -241,10 +241,6 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 	// Store block/tx stats
 	blk.Data["input_value"] = cast.ToString(blks.InputValue)
 	blk.Data["output_value"] = cast.ToString(blks.OutputValue)
-	if blks.InputMissing {
-		blk.Data["input_missing"] = cast.ToString(blks.InputMissing)
-		blk.Status = blocc.StatusInvalid
-	}
 	if blks.HasFee && blks.TxCount > 1 { // There is a transaction that is non-coinbase
 		blk.Data["fee"] = cast.ToString(blks.Fee)
 		blk.Data["fee_min"] = cast.ToString(blks.MinFee)
@@ -289,7 +285,7 @@ func (e *Extractor) handleBlock(wBlk *wire.MsgBlock) {
 		}
 
 		// Only mark block valid if there are no missing inputs
-		if !blks.InputMissing || e.txIgnoreMissingPrevious {
+		if !blk.Incomplete || e.txIgnoreMissingPrevious {
 			e.validBlockStore.AddValidBlock(bh)
 		}
 

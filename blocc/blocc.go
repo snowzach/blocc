@@ -73,7 +73,7 @@ type BlockChainStore interface {
 	GetBlockByBlockId(symbol string, blockId string, include BlockInclude) (*Block, error)
 	GetTxsByTxIds(symbol string, txIds []string, include TxInclude) ([]*Tx, error)
 	GetTxsByBlockId(symbol string, blockId string, include TxInclude) ([]*Tx, error)
-	GetTxCountByBlockId(symbol string, blockId string) (int64, error)
+	GetTxCountByBlockId(symbol string, blockId string, includeIncomplete bool) (int64, error)
 	GetTxByTxId(symbol string, txId string, include TxInclude) (*Tx, error)
 
 	// Return the aggregate size and count of transactions with blockId = BlockIdMempool
