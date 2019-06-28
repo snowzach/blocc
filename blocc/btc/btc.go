@@ -221,11 +221,23 @@ func Extract(blockChainStore blocc.BlockChainStore, txBus blocc.TxBus) (*Extract
 
 	// Get the mempool from the peer when we're not tracking blocks (we're tracking transactions)
 	if e.txFetch {
+		// Clear the entire mempool
 		err := e.blockChainStore.DeleteTransactionsByBlockIdAndTime(Symbol, blocc.BlockIdMempool, nil, nil)
 		if err != nil {
 			e.logger.Fatalf("Could not empty the mempool:%v", err)
 		}
 		e.RequestMemPool()
+
+		// Monitor the mempool and resolve any missing transaction inputs
+		go func() {
+			for {
+				time.Sleep(time.Minute)
+				err = e.ResolveTxInputs(Symbol, blocc.BlockIdMempool)
+				if err != nil {
+					e.logger.Errorf("ResolveTxInputs Error: %v", err)
+				}
+			}
+		}()
 	}
 
 	// Close the peer if stop signal comes in and clean everything up

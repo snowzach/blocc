@@ -237,3 +237,61 @@ func (e *Extractor) handleFork(symbol string, height int64, stopAfter int64) err
 	return nil
 
 }
+
+// ResolveTxInputs will handle automatically resolving any missing inputs from transactions and updating them in the database
+func (e *Extractor) ResolveTxInputs(symbol string, blockId string) error {
+
+	// Find all transaction with missing inputs
+	txs, err := e.blockChainStore.FindTxs(symbol, nil, blockId, nil, blocc.TxFilterIncompleteTrue, nil, nil, blocc.TxIncludeIn, 0, store.CountMax)
+	if err != nil {
+		return fmt.Errorf("Could not blockChainStore.FindTx:%v", err)
+	}
+
+	for _, tx := range txs {
+
+		e.logger.Infow("Resolving Tx Inputs", "tx_id", tx.TxId)
+
+		prevOutPoints := make(map[string]*blocc.Tx)
+		for _, in := range tx.In {
+			// It's missing
+			if in.Out == nil {
+				// If the cache has it now, populate it. If it's missing it will be nil with zero wait
+				prevOutPoints[in.TxId] = <-e.blockHeaderTxMon.WaitForTxId(in.TxId, 0)
+			}
+		}
+
+		// Find all those previous outputs that we have
+		err = e.getPrevOutPoints(prevOutPoints, nil, map[string]struct{}{})
+		if err != nil {
+			return fmt.Errorf("Could not getPrevOutPoints:%v", err)
+		}
+
+		// Populate the missing transactions
+		tx.Incomplete = false
+		for _, in := range tx.In {
+			// It's missing
+			if in.Out == nil {
+				// If we found it, store it in out
+				if prevTx := prevOutPoints[in.TxId]; prevTx != nil && int64(len(prevTx.Out)) > in.Height {
+					in.Out = prevTx.Out[in.Height]
+				} else {
+					// It's still missing
+					tx.Incomplete = true
+				}
+			}
+		}
+
+		// We resolved this transaction fully
+		if !tx.Incomplete {
+			// This will Upsert the transaction and ONLY update the inputs without modifying the rest of the transaction in case it has hit a block
+			err = e.blockChainStore.UpsertTransaction(symbol, &blocc.Tx{
+				TxId:       tx.TxId,
+				In:         tx.In,
+				Incomplete: tx.Incomplete,
+			})
+		} else {
+			e.logger.Warnw("Could not resolve all Tx inputs", "tx_id", tx.TxId)
+		}
+	}
+	return nil
+}
