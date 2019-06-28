@@ -61,7 +61,7 @@ message Block {
     // Status
     string status = 9;
     // If data is missing to consider this block complete
-    bool incomplete = 10 [(gogoproto.jsontag) = "incomplete"];
+    bool incomplete = 10 [(gogoproto.jsontag) = "incomplete"]; // Remove omitempty
     // Transaction Ids
     repeated string tx_ids = 11 [(gogoproto.jsontag) = "tx_id"];
 
@@ -87,13 +87,13 @@ message Tx {
     // Transaction Id
     string tx_id = 5;
     // Transaction Height (in block)
-    int64 height = 6 [(gogoproto.jsontag) = "height"]; // Remove omitempty
+    int64 height = 6;
     // Transaction Time
     int64 time = 7;
     // Size
     int64 size = 9 [(gogoproto.customname) = "TxSize"];
     // If data is missing to consider this tx complete
-    bool incomplete = 10 [(gogoproto.jsontag) = "incomplete"];
+    bool incomplete = 10 [(gogoproto.jsontag) = "incomplete"]; // Remove omit empty
     // Transaction Inputs
     repeated TxIn in = 11;
     // Transaction Outputs
