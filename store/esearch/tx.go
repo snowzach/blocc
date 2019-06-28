@@ -12,13 +12,13 @@ import (
 )
 
 // InsertTransaction inserts a transaction to the database
-func (e *esearch) InsertTransaction(symbol string, t *blocc.Tx) error {
+func (e *esearch) InsertTransaction(symbol string, tx *blocc.Tx) error {
 
 	request := elastic.NewBulkIndexRequest().
 		Index(e.indexName(IndexTypeTx, symbol)).
 		Type(DocType).
-		Id(t.TxId).
-		Doc(t)
+		Id(tx.TxId).
+		Doc(tx)
 
 	// Turn it into JSON such that we can modify the tx
 	request.Source()
@@ -30,13 +30,13 @@ func (e *esearch) InsertTransaction(symbol string, t *blocc.Tx) error {
 }
 
 // UpsertTransaction updates block data (essentially merging data object)
-func (e *esearch) UpsertTransaction(symbol string, t *blocc.Tx) error {
+func (e *esearch) UpsertTransaction(symbol string, tx *blocc.Tx) error {
 
 	request := elastic.NewBulkUpdateRequest().
 		Index(e.indexName(IndexTypeTx, symbol)).
 		Type(DocType).
-		Id(t.TxId).
-		Doc(t).
+		Id(tx.TxId).
+		Doc(tx).
 		DocAsUpsert(true)
 
 	// Turn it into JSON such that we can modify the tx
@@ -206,7 +206,7 @@ func (e *esearch) GetTxCountByBlockId(symbol string, blockId string, includeInco
 }
 
 // FindTxs will find multiple transactions by optionally multiple fields
-func (e *esearch) FindTxs(symbol string, txIds []string, blockId string, dataFields map[string]string, start *time.Time, end *time.Time, include blocc.TxInclude, offset int, count int) ([]*blocc.Tx, error) {
+func (e *esearch) FindTxs(symbol string, txIds []string, blockId string, dataFields map[string]string, incomplete blocc.TxFilterIncomplete, start *time.Time, end *time.Time, include blocc.TxInclude, offset int, count int) ([]*blocc.Tx, error) {
 
 	e.throttleSearches <- struct{}{}
 	defer func() {
@@ -235,6 +235,13 @@ func (e *esearch) FindTxs(symbol string, txIds []string, blockId string, dataFie
 		for fieldName, fieldValue := range dataFields {
 			query.Filter(elastic.NewTermQuery("data."+fieldName, fieldValue))
 		}
+	}
+
+	switch incomplete {
+	case blocc.TxFilterIncompleteTrue:
+		query.Filter(elastic.NewTermQuery("incomplete", true))
+	case blocc.TxFilterIncompleteFalse:
+		query.Filter(elastic.NewTermQuery("incomplete", false))
 	}
 
 	if start != nil && end != nil {
@@ -282,7 +289,7 @@ func (e *esearch) FindTxs(symbol string, txIds []string, blockId string, dataFie
 }
 
 // FindTxsByAddressesAndTime will find transactions by optiojnally addresses , time and pagination
-func (e *esearch) FindTxsByAddressesAndTime(symbol string, addresses []string, start *time.Time, end *time.Time, filter int, include blocc.TxInclude, offset int, count int) ([]*blocc.Tx, error) {
+func (e *esearch) FindTxsByAddressesAndTime(symbol string, addresses []string, start *time.Time, end *time.Time, filter blocc.TxFilterAddress, include blocc.TxInclude, offset int, count int) ([]*blocc.Tx, error) {
 
 	e.throttleSearches <- struct{}{}
 	defer func() {

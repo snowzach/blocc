@@ -8,6 +8,9 @@ import (
 
 // This contains all of the interfaces for the blocc indexer
 
+type TxFilterAddress int
+type TxFilterIncomplete int
+
 const (
 	HeightUnknown  = -1
 	BlockIdMempool = "mempool"
@@ -21,9 +24,13 @@ const (
 	TxIncludeAllButRaw = TxIncludeHeader | TxIncludeData | TxIncludeIn | TxIncludeOut
 
 	// When searching transactions for addresses, apply a filter to which addresses you wish to search
-	TxFilterAddressInput       = 1
-	TxFilterAddressOutput      = 2
-	TxFilterAddressInputOutput = TxFilterAddressInput | TxFilterAddressOutput
+	TxFilterAddressInput       TxFilterAddress = 1
+	TxFilterAddressOutput      TxFilterAddress = 2
+	TxFilterAddressInputOutput TxFilterAddress = TxFilterAddressInput | TxFilterAddressOutput
+
+	TxFilterIncompleteAll   TxFilterIncomplete = 0
+	TxFilterIncompleteTrue  TxFilterIncomplete = 1
+	TxFilterIncompleteFalse TxFilterIncomplete = 2
 
 	// Status fields
 	StatusNew      = "new"
@@ -51,8 +58,8 @@ type BlockChainStore interface {
 	UpdateBlock(symbol string, blockId string, status string, nextBlockId string, data map[string]string, metric map[string]float64) error
 	UpdateBlockStatusByStatusesAndHeight(symbol string, statuses []string, startHeight int64, endHeight int64, status string) error
 	DeleteBlockByBlockId(symbol string, blockId string) error
-	InsertTransaction(symbol string, blk *Tx) error
-	UpsertTransaction(symbol string, blk *Tx) error
+	InsertTransaction(symbol string, tx *Tx) error
+	UpsertTransaction(symbol string, tx *Tx) error
 	DeleteTransactionsByBlockIdAndTime(symbol string, blockId string, start *time.Time, end *time.Time) error
 
 	// Flushing blocks and transactions
@@ -92,9 +99,9 @@ type BlockChainStore interface {
 	// Find blocks by status and height ascending (nil or empty status slice implies any status)
 	FindBlocksByStatusAndHeight(symbol string, statuses []string, startHeight int64, endHeight int64, include BlockInclude, offset int, count int) ([]*Block, error)
 	// Find transactions by address and time period, order by time descending - See filter constants for which addresses you wish to search (inputs or outputs)
-	FindTxsByAddressesAndTime(symbol string, addresses []string, start *time.Time, end *time.Time, filter int, include TxInclude, offset int, count int) ([]*Tx, error)
+	FindTxsByAddressesAndTime(symbol string, addresses []string, start *time.Time, end *time.Time, filter TxFilterAddress, include TxInclude, offset int, count int) ([]*Tx, error)
 	// Find transactions by txids and time period, order by time descending -
-	FindTxs(symbol string, txIds []string, blockId string, dataFields map[string]string, start *time.Time, end *time.Time, include TxInclude, offset int, count int) ([]*Tx, error)
+	FindTxs(symbol string, txIds []string, blockId string, dataFields map[string]string, incomplete TxFilterIncomplete, start *time.Time, end *time.Time, include TxInclude, offset int, count int) ([]*Tx, error)
 
 	// This will calculate the average of a data field between block heights
 	AverageBlockDataFieldByHeight(symbol string, field string, omitZero bool, startHeight int64, endHeight int64) (float64, error)
