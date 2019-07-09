@@ -114,20 +114,6 @@ func (s *Server) LegacyGetBlockChainInfo(path int) http.HandlerFunc {
 			return
 		}
 
-		// The medium fee will be the average of the 10th percentile of the last 10 blocks
-		info.Fees.Med, err = s.blockChainStore.AverageBlockDataFieldByHeight(btc.Symbol, "data.fee_vsize_p10", true, info.Blocks-10, blocc.HeightUnknown)
-		if err == blocc.ErrNotFound {
-			info.Fees.Med = info.Fees.Avg
-		} else if err != nil {
-			render.Render(w, r, s.ErrInternalLog(fmt.Errorf("Error AverageBlockDataFieldByHeight: %v", err)))
-			return
-		} else {
-			// If the fast fee is better than this fee, use it instead
-			if info.Fees.Fast < info.Fees.Med {
-				info.Fees.Med = info.Fees.Fast
-			}
-		}
-
 		// The slow fee will be the 10th percentile of the 10th percentile of the last 144 blocks
 		info.Fees.Slow, err = s.blockChainStore.PercentileBlockDataFieldByHeight(btc.Symbol, "data.fee_vsize_p10", 10.0, true, info.Blocks-145, blocc.HeightUnknown)
 		if err == blocc.ErrNotFound {
@@ -136,10 +122,22 @@ func (s *Server) LegacyGetBlockChainInfo(path int) http.HandlerFunc {
 			render.Render(w, r, s.ErrInternalLog(fmt.Errorf("Error PercentileBlockDataFieldByHeight: %v", err)))
 			return
 		} else {
-			// If the fast fee is better than this fee, use it instead
-			if info.Fees.Med < info.Fees.Slow {
-				info.Fees.Slow = info.Fees.Med
+			// If the fast fee is somehow better than this fee, use it instead, and then increase the fast fee by a couple sats
+			// This should basically never happen
+			if info.Fees.Fast < info.Fees.Slow {
+				info.Fees.Slow = info.Fees.Fast
 			}
+		}
+
+		// Now calculate the medium fee as 2/3 the way to the fast fee from the slow fee
+		info.Fees.Med = (((info.Fees.Fast - info.Fees.Slow) / 3) * 2) + info.Fees.Slow
+
+		// Make extra sure the fees didn't end up the same or in the wrong order if there are rounding errors
+		if info.Fees.Med <= info.Fees.Slow {
+			info.Fees.Med += (info.Fees.Slow - info.Fees.Med) + 1
+		}
+		if info.Fees.Fast <= info.Fees.Med {
+			info.Fees.Fast += (info.Fees.Med - info.Fees.Fast) + 1
 		}
 
 		// Quick and dirty hack to provide the average fee as the minimum one since this is what the drop bit app uses
