@@ -108,6 +108,9 @@ service BloccRPC {
     rpc GetMemPoolStats(Symbol) returns (MemPoolStats) {
         option (google.api.http) = {
             get: "/mempool/stats"
+            additional_bindings: {
+                get: "/legacy/mempool/stats"
+            }
         };
     }
 
@@ -115,9 +118,11 @@ service BloccRPC {
     rpc GetMemPoolStream(Symbol) returns (stream blocc.Tx) {
         option (google.api.http) = {
             get: "/mempool/stream"
+            additional_bindings: {
+                get: "/legacy/mempool/stream"
+            }
         };
     }
-
 
 }
 
