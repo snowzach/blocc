@@ -1,11 +1,11 @@
-package esearch
+package esearch6
 
 import (
 	"encoding/json"
 	"fmt"
 	"time"
 
-	"github.com/olivere/elastic/v7"
+	"github.com/olivere/elastic"
 
 	"git.coinninja.net/backend/blocc/blocc"
 	"git.coinninja.net/backend/blocc/store"
@@ -16,6 +16,7 @@ func (e *esearch) InsertBlock(symbol string, b *blocc.Block) error {
 
 	request := elastic.NewBulkIndexRequest().
 		Index(e.indexName(IndexTypeBlock, symbol)).
+		Type(DocType).
 		Id(b.BlockId).
 		Doc(b)
 
@@ -50,10 +51,10 @@ func (e *esearch) UpdateBlock(symbol string, blockId string, status string, next
 
 	request := elastic.NewBulkUpdateRequest().
 		Index(e.indexName(IndexTypeBlock, symbol)).
+		Type(DocType).
 		Id(blockId).
 		Doc(&block).
 		DocAsUpsert(true)
-
 	// Force create the source so we can manipulate block
 	request.Source()
 	// Add it to the bulk handler
@@ -95,6 +96,7 @@ func (e *esearch) UpdateBlockStatusByStatusesAndHeight(symbol string, statuses [
 	// Update the status where the status is not already and it's between height
 	_, err := e.client.UpdateByQuery().
 		Index(e.indexName(IndexTypeBlock, symbol)).
+		Type(DocType).
 		Query(query).
 		Script(elastic.NewScript(`ctx._source['status'] = '` + status + `'`).Lang("painless")).
 		ScrollSize(2500).
@@ -109,6 +111,7 @@ func (e *esearch) DeleteBlockByBlockId(symbol string, blockId string) error {
 
 	_, err := e.client.Delete().
 		Index(e.indexName(IndexTypeBlock, symbol)).
+		Type(DocType).
 		Id(blockId).
 		Refresh("true").
 		Do(e.ctx)
@@ -120,6 +123,7 @@ func (e *esearch) DeleteAboveBlockHeight(symbol string, above int64) error {
 
 	_, err := e.client.DeleteByQuery().
 		Index(e.indexName(IndexTypeBlock, symbol)).
+		Type(DocType).
 		Query(elastic.NewRangeQuery("height").Gt(above)).
 		Refresh("true").
 		Do(e.ctx)
@@ -129,6 +133,7 @@ func (e *esearch) DeleteAboveBlockHeight(symbol string, above int64) error {
 
 	_, err = e.client.DeleteByQuery().
 		Index(e.indexName(IndexTypeTx, symbol)).
+		Type(DocType).
 		Query(elastic.NewRangeQuery("block_height").Gt(above)).
 		Refresh("true").
 		Do(e.ctx)
@@ -181,6 +186,7 @@ func (e *esearch) GetBlockHeaderTopByStatuses(symbol string, statuses []string) 
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeBlock, symbol)).
+		Type(DocType).
 		Sort("height", false).
 		Query(query).
 		FetchSourceContext(elastic.NewFetchSourceContext(true).Include("height").Include("block_id").Include("prev_block_id").Include("time")).
@@ -189,21 +195,21 @@ func (e *esearch) GetBlockHeaderTopByStatuses(symbol string, statuses []string) 
 		return nil, err
 	}
 
-	if res.Hits.TotalHits.Value == 0 {
+	if res.Hits.TotalHits == 0 {
 		return nil, blocc.ErrNotFound
 	}
 
 	var bh = new(blocc.BlockHeader)
-	err = json.Unmarshal(res.Hits.Hits[0].Source, &bh)
+	err = json.Unmarshal(*res.Hits.Hits[0].Source, &bh)
 	if err != nil {
 		return nil, fmt.Errorf("Could not parse BlockHeader: %s", err)
 	}
 
 	// Return the height but also an error indicating the height and the number of blocks do not match up (ie missing data)
-	if bh.Height > res.Hits.TotalHits.Value+1 {
-		return bh, fmt.Errorf("Validation Error: Missing Blocks Detected height:%d blocks:%d", bh.Height, res.Hits.TotalHits.Value)
-	} else if bh.Height+1 < res.Hits.TotalHits.Value {
-		return bh, fmt.Errorf("Validation Error: Missing Blocks Detected height:%d blocks:%d", bh.Height, res.Hits.TotalHits.Value)
+	if bh.Height > res.Hits.TotalHits+1 {
+		return bh, fmt.Errorf("Validation Error: Missing Blocks Detected height:%d blocks:%d", bh.Height, res.Hits.TotalHits)
+	} else if bh.Height+1 < res.Hits.TotalHits {
+		return bh, fmt.Errorf("Validation Error: Missing Blocks Detected height:%d blocks:%d", bh.Height, res.Hits.TotalHits)
 	}
 
 	return bh, nil
@@ -219,6 +225,7 @@ func (e *esearch) GetBlockByBlockId(symbol string, blockId string, include blocc
 
 	res, err := e.client.Get().
 		Index(e.indexName(IndexTypeBlock, symbol)).
+		Type(DocType).
 		Id(blockId).
 		FetchSourceContext(blockFetchSourceContext(include)).
 		Do(e.ctx)
@@ -230,7 +237,7 @@ func (e *esearch) GetBlockByBlockId(symbol string, blockId string, include blocc
 
 	// Unmarshal the block
 	b := new(blocc.Block)
-	err = json.Unmarshal(res.Source, b)
+	err = json.Unmarshal(*res.Source, b)
 	return b, err
 
 }
@@ -273,6 +280,7 @@ func (e *esearch) FindBlocksByHeight(symbol string, height int64, include blocc.
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeBlock, symbol)).
+		Type(DocType).
 		Query(query).
 		FetchSourceContext(blockFetchSourceContext(include)).
 		From(0).Size(e.countMax).Do(e.ctx)
@@ -280,7 +288,7 @@ func (e *esearch) FindBlocksByHeight(symbol string, height int64, include blocc.
 		return nil, fmt.Errorf("Could not get block: %v", err)
 	}
 
-	if res.Hits.TotalHits.Value == 0 {
+	if res.Hits.TotalHits == 0 {
 		return nil, blocc.ErrNotFound
 	}
 
@@ -288,7 +296,7 @@ func (e *esearch) FindBlocksByHeight(symbol string, height int64, include blocc.
 
 	for i, hit := range res.Hits.Hits {
 		tx := new(blocc.Block)
-		err := json.Unmarshal(hit.Source, &tx)
+		err := json.Unmarshal(*hit.Source, &tx)
 		if err != nil {
 			return nil, fmt.Errorf("Could not parse Block: %s", err)
 		}
@@ -308,6 +316,7 @@ func (e *esearch) FindBlocksByPrevBlockId(symbol string, prevBlockId string, inc
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeBlock, symbol)).
+		Type(DocType).
 		Query(elastic.NewBoolQuery().Filter(elastic.NewTermQuery("prev_block_id", prevBlockId))).
 		FetchSourceContext(blockFetchSourceContext(include)).
 		From(0).Size(e.countMax).Do(e.ctx)
@@ -315,7 +324,7 @@ func (e *esearch) FindBlocksByPrevBlockId(symbol string, prevBlockId string, inc
 		return nil, fmt.Errorf("Could not get block: %v", err)
 	}
 
-	if res.Hits.TotalHits.Value == 0 {
+	if res.Hits.TotalHits == 0 {
 		return nil, blocc.ErrNotFound
 	}
 
@@ -323,7 +332,7 @@ func (e *esearch) FindBlocksByPrevBlockId(symbol string, prevBlockId string, inc
 
 	for i, hit := range res.Hits.Hits {
 		tx := new(blocc.Block)
-		err := json.Unmarshal(hit.Source, &tx)
+		err := json.Unmarshal(*hit.Source, &tx)
 		if err != nil {
 			return nil, fmt.Errorf("Could not parse Block: %s", err)
 		}
@@ -344,6 +353,7 @@ func (e *esearch) FindBlocksByTxId(symbol string, txId string, include blocc.Blo
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeBlock, symbol)).
+		Type(DocType).
 		Query(elastic.NewBoolQuery().Filter(elastic.NewTermQuery("tx_id", txId))).
 		FetchSourceContext(blockFetchSourceContext(include)).
 		From(0).Size(e.countMax).
@@ -352,7 +362,7 @@ func (e *esearch) FindBlocksByTxId(symbol string, txId string, include blocc.Blo
 		return nil, fmt.Errorf("Could not get block: %v", err)
 	}
 
-	if res.Hits.TotalHits.Value == 0 {
+	if res.Hits.TotalHits == 0 {
 		return nil, blocc.ErrNotFound
 	}
 
@@ -360,7 +370,7 @@ func (e *esearch) FindBlocksByTxId(symbol string, txId string, include blocc.Blo
 
 	for i, hit := range res.Hits.Hits {
 		tx := new(blocc.Block)
-		err := json.Unmarshal(hit.Source, &tx)
+		err := json.Unmarshal(*hit.Source, &tx)
 		if err != nil {
 			return nil, fmt.Errorf("Could not parse Block: %s", err)
 		}
@@ -404,6 +414,7 @@ func (e *esearch) FindBlocksByBlockIdsAndTime(symbol string, blockIds []string, 
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeBlock, symbol)).
+		Type(DocType).
 		Sort("time", false).
 		Query(query).
 		FetchSourceContext(blockFetchSourceContext(include)).
@@ -413,7 +424,7 @@ func (e *esearch) FindBlocksByBlockIdsAndTime(symbol string, blockIds []string, 
 		return nil, err
 	}
 
-	if res.Hits.TotalHits.Value == 0 {
+	if res.Hits.TotalHits == 0 {
 		return nil, blocc.ErrNotFound
 	}
 
@@ -421,7 +432,7 @@ func (e *esearch) FindBlocksByBlockIdsAndTime(symbol string, blockIds []string, 
 
 	for i, hit := range res.Hits.Hits {
 		tx := new(blocc.Block)
-		err := json.Unmarshal(hit.Source, &tx)
+		err := json.Unmarshal(*hit.Source, &tx)
 		if err != nil {
 			return nil, fmt.Errorf("Could not parse Block: %s", err)
 		}
@@ -466,6 +477,7 @@ func (e *esearch) FindBlocksByStatusAndHeight(symbol string, statuses []string, 
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeBlock, symbol)).
+		Type(DocType).
 		Sort("height", true).
 		Query(query).
 		FetchSourceContext(blockFetchSourceContext(include)).
@@ -475,7 +487,7 @@ func (e *esearch) FindBlocksByStatusAndHeight(symbol string, statuses []string, 
 		return nil, err
 	}
 
-	if res.Hits.TotalHits.Value == 0 {
+	if res.Hits.TotalHits == 0 {
 		return nil, blocc.ErrNotFound
 	}
 
@@ -483,7 +495,7 @@ func (e *esearch) FindBlocksByStatusAndHeight(symbol string, statuses []string, 
 
 	for i, hit := range res.Hits.Hits {
 		tx := new(blocc.Block)
-		err := json.Unmarshal(hit.Source, &tx)
+		err := json.Unmarshal(*hit.Source, &tx)
 		if err != nil {
 			return nil, fmt.Errorf("Could not parse Block: %s", err)
 		}

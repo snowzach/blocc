@@ -46,6 +46,7 @@ func init() {
 	config.SetDefault("server.legacy.btc_avg_fee_max", 500)
 	config.SetDefault("server.legacy.btc_max_fee_max", -1)
 	config.SetDefault("server.legacy.btc_use_p10_fee", false)
+	config.SetDefault("server.legacy.btc_fee_testing", false)
 
 	// Set Defaults - Elasticsearch
 	config.SetDefault("elasticsearch.request_log", false)
@@ -55,6 +56,7 @@ func init() {
 	config.SetDefault("elasticsearch.host", "") // Override back to host when ready to use
 	config.SetDefault("elasticsearch.port", "9200")
 	config.SetDefault("elasticsearch.retries", 5)
+	config.SetDefault("elasticsearch.version", 6)
 	config.SetDefault("elasticsearch.sleep_between_retries", "5s")
 	config.SetDefault("elasticsearch.count_max", 10000)
 	config.SetDefault("elasticsearch.index", "blocc")
