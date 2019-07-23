@@ -1,9 +1,9 @@
-package esearch
+package esearch6
 
 import (
 	"fmt"
 
-	"github.com/olivere/elastic/v7"
+	"github.com/olivere/elastic"
 
 	"git.coinninja.net/backend/blocc/blocc"
 )
@@ -32,6 +32,7 @@ func (e *esearch) AverageBlockDataFieldByHeight(symbol string, field string, omi
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeBlock, symbol)).
+		Type(DocType).
 		Query(query).
 		Aggregation("thisagg", elastic.NewAvgAggregation().Script(elastic.NewScript(fmt.Sprintf(`Double.parseDouble(doc["%s"].value)`, field)))).
 		Size(0).
@@ -40,7 +41,7 @@ func (e *esearch) AverageBlockDataFieldByHeight(symbol string, field string, omi
 		return 0, err
 	}
 
-	if res.Hits.TotalHits.Value == 0 {
+	if res.Hits.TotalHits == 0 {
 		return 0, blocc.ErrNotFound
 	}
 
@@ -75,6 +76,7 @@ func (e *esearch) PercentileBlockDataFieldByHeight(symbol string, field string, 
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeBlock, symbol)).
+		Type(DocType).
 		Query(query).
 		Aggregation("thisagg", elastic.NewPercentilesAggregation().Percentiles(percentile).Script(elastic.NewScript(fmt.Sprintf(`Double.parseDouble(doc["%s"].value)`, field)))).
 		Size(0).
@@ -83,7 +85,7 @@ func (e *esearch) PercentileBlockDataFieldByHeight(symbol string, field string, 
 		return 0, err
 	}
 
-	if res.Hits.TotalHits.Value == 0 {
+	if res.Hits.TotalHits == 0 {
 		return 0, blocc.ErrNotFound
 	}
 

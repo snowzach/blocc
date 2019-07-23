@@ -1,10 +1,10 @@
-package esearch
+package esearch6
 
 import (
 	"context"
 	"encoding/json"
 
-	"github.com/olivere/elastic/v7"
+	"github.com/olivere/elastic"
 	"github.com/spf13/cast"
 
 	"git.coinninja.net/backend/blocc/blocc"
@@ -36,6 +36,7 @@ func (e *esearch) Fix() {
 
 		res, err := e.client.Search().
 			Index(e.indexName(IndexTypeBlock, fixSymbol)).
+			Type(DocType).
 			Query(elastic.NewQueryStringQuery("-next_block_id:* AND height:<"+cast.ToString(top.Height-1))).
 			// Query(elastic.NewQueryStringQuery("height:>"+cast.ToString(height))).
 			// Query(elastic.NewQueryStringQuery("(-_exists_:tx_count) OR (NOT status:valid) OR (-_exists_:status)")).
@@ -47,7 +48,7 @@ func (e *esearch) Fix() {
 			e.logger.Fatalw("Search error", "error", err)
 		}
 
-		if res.Hits.TotalHits.Value == 0 {
+		if res.Hits.TotalHits == 0 {
 			break
 		}
 
@@ -56,7 +57,7 @@ func (e *esearch) Fix() {
 
 		for _, hit := range res.Hits.Hits {
 
-			err := json.Unmarshal(hit.Source, &b)
+			err := json.Unmarshal(*hit.Source, &b)
 			if err != nil {
 				e.logger.Fatalf("Could not unmarshal block: %v", err)
 			}
@@ -80,6 +81,7 @@ func (e *esearch) Fix() {
 
 			request := elastic.NewBulkUpdateRequest().
 				Index(e.indexName(IndexTypeBlock, fixSymbol)).
+				Type(DocType).
 				Id(b.BlockId).
 				// Script(elastic.NewScript("ctx._source.remove('address'); ctx._source.data.remove('tx_count');").Lang("painless"))
 				Doc(data).

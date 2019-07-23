@@ -3,8 +3,10 @@ GITVERSION := $(shell git describe --dirty --always --tags --long)
 GOPATH ?= ${HOME}/go
 PACKAGENAME := $(shell go list -m -f '{{.Path}}')
 EMBEDDIR := embed
-EMBED := embed/template-block.json \
-	embed/template-tx.json
+EMBED := embed/template-6-block.json \
+	embed/template-6-tx.json \
+	embed/template-7-block.json \
+	embed/template-7-tx.json
 TOOLS := ${GOPATH}/bin/go-bindata \
 	${GOPATH}/bin/mockery \
 	${GOPATH}/src/github.com/gogo/protobuf/proto \
