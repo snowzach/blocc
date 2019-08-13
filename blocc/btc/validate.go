@@ -245,7 +245,9 @@ func (e *Extractor) ResolveTxInputs(symbol string, blockId string) error {
 
 	// Find all transaction with missing inputs
 	txs, err := e.blockChainStore.FindTxs(symbol, nil, blockId, nil, blocc.TxFilterIncompleteTrue, nil, nil, blocc.TxIncludeIn, 0, store.CountMax)
-	if err != nil {
+	if err == blocc.ErrNotFound {
+		return nil // No work to do
+	} else if err != nil {
 		return fmt.Errorf("Could not blockChainStore.FindTx:%v", err)
 	}
 
