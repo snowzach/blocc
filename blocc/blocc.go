@@ -12,8 +12,9 @@ type TxFilterAddress int
 type TxFilterIncomplete int
 
 const (
-	HeightUnknown  = -1
-	BlockIdMempool = "mempool"
+	HeightUnknown        = -1
+	BlockIdMempool       = "mempool"
+	BlockIdMempoolUpdate = "mempool-update"
 
 	// Selectively include things when fetching block
 	BlockIncludeAll       = BlockIncludeHeader | BlockIncludeData | BlockIncludeRaw | BlockIncludeTxIds
@@ -60,6 +61,7 @@ type BlockChainStore interface {
 	DeleteBlockByBlockId(symbol string, blockId string) error
 	InsertTransaction(symbol string, tx *Tx) error
 	UpsertTransaction(symbol string, tx *Tx) error
+	UpdateTxBlockIdByBlockId(symbol string, blockId string, newBlockId string) error
 	DeleteTransactionsByBlockIdAndTime(symbol string, blockId string, start *time.Time, end *time.Time) error
 
 	// Flushing blocks and transactions

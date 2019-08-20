@@ -357,14 +357,32 @@ func (e *esearch) FindTxsByAddressesAndTime(symbol string, addresses []string, s
 
 }
 
-// GetMemPoolStats returns the size and count of the mempool (blockId = blocc.BlockIdMempool)
+// UpdateTxBlockIdByBlockId will update the blockId of a transaction to a new block id
+func (e *esearch) UpdateTxBlockIdByBlockId(symbol string, blockId string, newBlockId string) error {
+
+	// Update the block_id to a new value where the old value is set
+	_, err := e.client.UpdateByQuery().
+		Index(e.indexName(IndexTypeTx, symbol)).
+		Query(elastic.NewTermQuery("block_id", blockId)).
+		Script(elastic.NewScript(`ctx._source['block_id'] = '` + newBlockId + `'`).Lang("painless")).
+		ScrollSize(2500).
+		Do(e.ctx)
+
+	return err
+
+}
+
+// GetMemPoolStats returns the size and count of the mempool
 func (e *esearch) GetMemPoolStats(symbol string) (int64, int64, error) {
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeTx, symbol)).
 		Type(DocType).
 		Sort("time", false).
-		Query(elastic.NewTermQuery("block_id", blocc.BlockIdMempool)).
+		Query(elastic.NewBoolQuery().Filter(elastic.NewBoolQuery().Should(
+			elastic.NewTermQuery("block_id", blocc.BlockIdMempool), // include both mempool block_ids
+			elastic.NewTermQuery("block_id", blocc.BlockIdMempoolUpdate),
+		))).
 		Aggregation("size", elastic.NewSumAggregation().Field("size")).
 		Size(0).
 		Do(e.ctx)
