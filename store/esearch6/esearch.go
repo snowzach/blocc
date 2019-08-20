@@ -1,4 +1,4 @@
-package esearch
+package esearch6
 
 import (
 	"context"
@@ -12,17 +12,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/olivere/elastic/v7"
+	"github.com/olivere/elastic"
 	config "github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	"git.coinninja.net/backend/blocc/blocc"
 	"git.coinninja.net/backend/blocc/conf"
 	"git.coinninja.net/backend/blocc/embed"
-	"git.coinninja.net/backend/blocc/store/esearch6"
 )
 
-var versionRegexp = regexp.MustCompile(`^7\..*`)
+const (
+	DocType = "blocc"
+)
+
+var versionRegexp = regexp.MustCompile(`^6\..*`)
 
 type esearch struct {
 	logger *zap.SugaredLogger
@@ -42,17 +44,6 @@ type esearch struct {
 	lastBulkError error
 
 	sync.Mutex
-}
-
-func NewBlockChainStore() (blocc.BlockChainStore, error) {
-
-	// If we're supposed to return esearch6 do that
-	if config.GetInt("elasticsearch.version") < 7 {
-		return esearch6.New()
-	}
-
-	return New()
-
 }
 
 // NewES creates a connection to Elasticsearch to interact with, it can (and should) use a DistCache to overcome the Refresh interval
@@ -149,7 +140,7 @@ func New() (*esearch, error) {
 	}
 	// Get the version number
 	if !versionRegexp.MatchString(pingResult.Version.Number) {
-		return nil, fmt.Errorf("Unsupported Elasticsearch version %s. Supported: 7.x+", pingResult.Version.Number)
+		return nil, fmt.Errorf("Unsupported Elasticsearch version %s. Supported: 6.x", pingResult.Version.Number)
 	}
 
 	// Remove indexes if we are set to wipe...
@@ -240,7 +231,7 @@ func (e *esearch) ApplyIndexTemplate(indexType string) error {
 	var rawMapping []byte
 	if mappingFile == "" {
 		mappingFile = "embedded"
-		rawMapping, err = embed.Asset(fmt.Sprintf("template-7-%s.json", indexType))
+		rawMapping, err = embed.Asset("template-6-" + indexType + ".json")
 		if err != nil {
 			return fmt.Errorf("Could not retrieve embedded mapping file: %v", err)
 		}

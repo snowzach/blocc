@@ -33,7 +33,7 @@ var (
 			}
 
 			// Elastic will implement BlockStore
-			blockChainStore, err = esearch.New()
+			blockChainStore, err = esearch.NewBlockChainStore()
 			if err != nil {
 				logger.Fatalw("BlockStore Error", "error", err)
 			}

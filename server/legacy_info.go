@@ -83,6 +83,25 @@ func (s *Server) LegacyGetBlockChainInfo(path int) http.HandlerFunc {
 			txTotalCount += cast.ToFloat64(blk.TxCount)
 		}
 
+		// If test mode, return hard coded fees
+		if config.GetBool("server.legacy.btc_fee_testing") {
+			info.Fees.Min = 1
+			info.Fees.Avg = 2
+			info.Fees.Max = 3
+			info.Fees.Slow = 1.1
+			info.Fees.Med = 2.2
+			info.Fees.Fast = 3.1
+
+			if path == blockChainInfoPathFees {
+				// Return just the fees portion
+				render.JSON(w, r, info.Fees)
+			} else {
+				// Return the full info object
+				render.JSON(w, r, info)
+			}
+			return
+		}
+
 		if count == 0.0 {
 			render.Render(w, r, s.ErrInternalLog(fmt.Errorf("Did not get any fee blocks when collecting fees")))
 			return

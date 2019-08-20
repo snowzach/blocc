@@ -1,11 +1,11 @@
-package esearch
+package esearch6
 
 import (
 	"encoding/json"
 	"fmt"
 	"time"
 
-	"github.com/olivere/elastic/v7"
+	"github.com/olivere/elastic"
 
 	"git.coinninja.net/backend/blocc/blocc"
 	"git.coinninja.net/backend/blocc/store"
@@ -16,6 +16,7 @@ func (e *esearch) InsertTransaction(symbol string, tx *blocc.Tx) error {
 
 	request := elastic.NewBulkIndexRequest().
 		Index(e.indexName(IndexTypeTx, symbol)).
+		Type(DocType).
 		Id(tx.TxId).
 		Doc(tx)
 
@@ -33,6 +34,7 @@ func (e *esearch) UpsertTransaction(symbol string, tx *blocc.Tx) error {
 
 	request := elastic.NewBulkUpdateRequest().
 		Index(e.indexName(IndexTypeTx, symbol)).
+		Type(DocType).
 		Id(tx.TxId).
 		Doc(tx).
 		DocAsUpsert(true)
@@ -61,6 +63,7 @@ func (e *esearch) DeleteTransactionsByBlockIdAndTime(symbol string, blockId stri
 
 	_, err := e.client.DeleteByQuery().
 		Index(e.indexName(IndexTypeTx, symbol)).
+		Type(DocType).
 		Query(query).
 		Refresh("true").
 		Do(e.ctx)
@@ -77,6 +80,7 @@ func (e *esearch) GetTxByTxId(symbol string, txId string, include blocc.TxInclud
 
 	res, err := e.client.Get().
 		Index(e.indexName(IndexTypeTx, symbol)).
+		Type(DocType).
 		Id(txId).
 		FetchSourceContext(txFetchSourceContext(include)).
 		Do(e.ctx)
@@ -89,7 +93,7 @@ func (e *esearch) GetTxByTxId(symbol string, txId string, include blocc.TxInclud
 
 	// Unmarshal the Tx
 	tx := new(blocc.Tx)
-	err = json.Unmarshal(res.Source, tx)
+	err = json.Unmarshal(*res.Source, tx)
 	return tx, err
 
 }
@@ -108,7 +112,7 @@ func (e *esearch) GetTxsByTxIds(symbol string, txIds []string, include blocc.TxI
 
 	// Add all the ids
 	for _, txId := range txIds {
-		query.Add(elastic.NewMultiGetItem().Index(index).Id(txId).FetchSource(fsc))
+		query.Add(elastic.NewMultiGetItem().Index(index).Type(DocType).Id(txId).FetchSource(fsc))
 	}
 
 	res, err := query.Do(e.ctx)
@@ -123,7 +127,7 @@ func (e *esearch) GetTxsByTxIds(symbol string, txIds []string, include blocc.TxI
 			continue
 		}
 		t := new(blocc.Tx)
-		err = json.Unmarshal(doc.Source, t)
+		err = json.Unmarshal(*doc.Source, t)
 		txs = append(txs, t)
 	}
 
@@ -141,6 +145,7 @@ func (e *esearch) GetTxsByBlockId(symbol string, blockId string, include blocc.T
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeTx, symbol)).
+		Type(DocType).
 		Sort("height", true).
 		Query(elastic.NewBoolQuery().Filter(elastic.NewTermQuery("block_id", blockId))).
 		FetchSourceContext(txFetchSourceContext(include)).
@@ -150,7 +155,7 @@ func (e *esearch) GetTxsByBlockId(symbol string, blockId string, include blocc.T
 		return nil, err
 	}
 
-	if res.Hits.TotalHits.Value == 0 {
+	if res.Hits.TotalHits == 0 {
 		return nil, blocc.ErrNotFound
 	}
 
@@ -158,7 +163,7 @@ func (e *esearch) GetTxsByBlockId(symbol string, blockId string, include blocc.T
 
 	for i, hit := range res.Hits.Hits {
 		tx := new(blocc.Tx)
-		err := json.Unmarshal(hit.Source, &tx)
+		err := json.Unmarshal(*hit.Source, &tx)
 		if err != nil {
 			return nil, fmt.Errorf("Could not parse Tx: %s", err)
 		}
@@ -188,6 +193,7 @@ func (e *esearch) GetTxCountByBlockId(symbol string, blockId string, includeInco
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeTx, symbol)).
+		Type(DocType).
 		Query(query).
 		FetchSource(false).
 		Size(0).
@@ -196,7 +202,7 @@ func (e *esearch) GetTxCountByBlockId(symbol string, blockId string, includeInco
 		return 0, err
 	}
 
-	return int64(res.Hits.TotalHits.Value), nil
+	return int64(res.Hits.TotalHits), nil
 }
 
 // FindTxs will find multiple transactions by optionally multiple fields
@@ -253,6 +259,7 @@ func (e *esearch) FindTxs(symbol string, txIds []string, blockId string, dataFie
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeTx, symbol)).
+		Type(DocType).
 		Sort("time", false).
 		Query(query).
 		FetchSourceContext(txFetchSourceContext(include)).
@@ -262,7 +269,7 @@ func (e *esearch) FindTxs(symbol string, txIds []string, blockId string, dataFie
 		return nil, err
 	}
 
-	if res.Hits.TotalHits.Value == 0 {
+	if res.Hits.TotalHits == 0 {
 		return nil, blocc.ErrNotFound
 	}
 
@@ -270,7 +277,7 @@ func (e *esearch) FindTxs(symbol string, txIds []string, blockId string, dataFie
 
 	for i, hit := range res.Hits.Hits {
 		tx := new(blocc.Tx)
-		err := json.Unmarshal(hit.Source, &tx)
+		err := json.Unmarshal(*hit.Source, &tx)
 		if err != nil {
 			return nil, fmt.Errorf("Could not parse Tx: %s", err)
 		}
@@ -321,6 +328,7 @@ func (e *esearch) FindTxsByAddressesAndTime(symbol string, addresses []string, s
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeTx, symbol)).
+		Type(DocType).
 		Sort("time", false).
 		Query(query).
 		FetchSourceContext(txFetchSourceContext(include)).
@@ -330,7 +338,7 @@ func (e *esearch) FindTxsByAddressesAndTime(symbol string, addresses []string, s
 		return nil, err
 	}
 
-	if res.Hits.TotalHits.Value == 0 {
+	if res.Hits.TotalHits == 0 {
 		return nil, blocc.ErrNotFound
 	}
 
@@ -338,7 +346,7 @@ func (e *esearch) FindTxsByAddressesAndTime(symbol string, addresses []string, s
 
 	for i, hit := range res.Hits.Hits {
 		tx := new(blocc.Tx)
-		err := json.Unmarshal(hit.Source, &tx)
+		err := json.Unmarshal(*hit.Source, &tx)
 		if err != nil {
 			return nil, fmt.Errorf("Could not parse Tx: %s", err)
 		}
@@ -369,9 +377,10 @@ func (e *esearch) GetMemPoolStats(symbol string) (int64, int64, error) {
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeTx, symbol)).
+		Type(DocType).
 		Sort("time", false).
 		Query(elastic.NewBoolQuery().Filter(elastic.NewBoolQuery().Should(
-			elastic.NewTermQuery("block_id", blocc.BlockIdMempool),
+			elastic.NewTermQuery("block_id", blocc.BlockIdMempool), // include both mempool block_ids
 			elastic.NewTermQuery("block_id", blocc.BlockIdMempoolUpdate),
 		))).
 		Aggregation("size", elastic.NewSumAggregation().Field("size")).
@@ -381,7 +390,7 @@ func (e *esearch) GetMemPoolStats(symbol string) (int64, int64, error) {
 		return 0, 0, err
 	}
 
-	count := int64(res.Hits.TotalHits.Value)
+	count := int64(res.Hits.TotalHits)
 	var size int64
 	if flSize, found := res.Aggregations.Sum("size"); found {
 		size = int64(*flSize.Value)
@@ -430,6 +439,7 @@ func (e *esearch) GetAddressStats(symbol string, address string) (int64, int64, 
 
 	res, err := e.client.Search().
 		Index(e.indexName(IndexTypeTx, symbol)).
+		Type(DocType).
 		Query(elastic.NewTermQuery("address", address)).
 		Aggregation("stats", agg).
 		Size(0).
@@ -451,11 +461,11 @@ func (e *esearch) GetAddressStats(symbol string, address string) (int64, int64, 
 	}
 
 	// Capture the value
-	if err := json.Unmarshal(stats, &aggValue); err != nil {
+	if err := json.Unmarshal(*stats, &aggValue); err != nil {
 		return 0, 0, 0, fmt.Errorf("Could not process aggregation data: %v", err)
 	}
 
-	return int64(res.Hits.TotalHits.Value), aggValue.Value.OutputValue, aggValue.Value.InputValue, nil
+	return int64(res.Hits.TotalHits), aggValue.Value.OutputValue, aggValue.Value.InputValue, nil
 
 }
 

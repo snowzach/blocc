@@ -221,10 +221,83 @@ func Extract(blockChainStore blocc.BlockChainStore, txBus blocc.TxBus) (*Extract
 
 	// Get the mempool from the peer when we're not tracking blocks (we're tracking transactions)
 	if e.txFetch {
+		var lastMempoolUpdate time.Time
 		go func() {
+
+			// Main Mempool handler loop
 			for {
-				// Clear the entire mempool
-				err := e.blockChainStore.DeleteTransactionsByBlockIdAndTime(Symbol, blocc.BlockIdMempool, nil, nil)
+
+				// If we're not connect to the peer, reconnect
+				if !e.peer.Connected() {
+					// Ensure we're disconnected
+					e.peer.Disconnect()
+					// Reconnect
+					e.logger.Warn("Attempting peer reconnect")
+					err := e.Connect()
+					if err != nil {
+						e.logger.Errorw("Error reconnecting to peer. Sleeping/Retry", "error", err)
+						time.Sleep(time.Minute)
+						continue
+					}
+					// We're connected now - recreate the pool
+					lastMempoolUpdate = time.Time{}
+				}
+
+				// Refresh the mempool
+				if time.Since(lastMempoolUpdate) > config.GetDuration("extractor.btc.transaction_mempool_refresh_interval") {
+
+					e.logger.Info("Reloading mempool")
+
+					// Update anything in the mempool to the mempool-update flag
+					err = e.blockChainStore.UpdateTxBlockIdByBlockId(Symbol, blocc.BlockIdMempool, blocc.BlockIdMempoolUpdate)
+					if err != nil {
+						e.logger.Errorf("Could update mempool to the mempool-update flag:%v", err)
+						continue
+					}
+
+					// Ensure everything is written to disk
+					err = e.blockChainStore.FlushTransactions(Symbol)
+					if err != nil {
+						e.logger.Errorf("Could not flush mempool-update changes:%v", err)
+						continue
+					}
+
+					// Fetch the active mempool
+					e.RequestMemPool()
+
+					go func() {
+						// Sleep and give time for transactions to load into mempool
+						time.Sleep(config.GetDuration("extractor.btc.transaction_mempool_load_time"))
+
+						// Make sure no errors in the meantime
+						if !e.peer.Connected() {
+							return
+						}
+
+						e.logger.Info("Scrubbing mempool of deleted transactions")
+
+						// Ensure everything is written to disk
+						err = e.blockChainStore.FlushTransactions(Symbol)
+						if err != nil {
+							e.logger.Errorf("Could not flush mempool-update changes:%v", err)
+							return
+						}
+
+						// Delete any transactions still marked with the update flag
+						err = e.blockChainStore.DeleteTransactionsByBlockIdAndTime(Symbol, blocc.BlockIdMempoolUpdate, nil, nil)
+						if err != nil {
+							e.logger.Errorf("Could not delete expired mempool-update transactions flag:%v", err)
+							return
+						}
+					}()
+
+					lastMempoolUpdate = time.Now()
+
+				}
+
+				time.Sleep(time.Minute)
+				// This will attempt to resolve any of the transactions in the mempool missing data
+				err = e.ResolveTxInputs(Symbol, blocc.BlockIdMempool)
 				if err != nil {
 					e.logger.Fatalf("Could not empty the mempool:%v", err)
 				}

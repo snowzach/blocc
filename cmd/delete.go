@@ -31,7 +31,7 @@ var (
 			var err error
 
 			// Connect to the store
-			bcs, err = esearch.New()
+			bcs, err = esearch.NewBlockChainStore()
 			if err != nil {
 				logger.Fatalw("BlockStore Error", "error", err)
 			}

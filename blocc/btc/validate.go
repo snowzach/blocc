@@ -11,7 +11,9 @@ func (e *Extractor) ValidateBlockChain(symbol string, stopAfter int64) (*blocc.B
 
 	// Make sure we have the lastValidBlockHeader
 	lastValidBlockHeader, lastError := e.blockChainStore.GetBlockHeaderTopByStatuses(symbol, []string{blocc.StatusValid})
-	if lastError != nil {
+	if lastError == blocc.ErrNotFound {
+		lastError = nil // We are likely validating a short/test block chain
+	} else if lastError != nil {
 		return nil, fmt.Errorf("Could not blockChainStore.GetBlockHeaderTopByStatuses: %v", lastError)
 	}
 
