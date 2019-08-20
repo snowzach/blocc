@@ -110,6 +110,8 @@ func init() {
 	config.SetDefault("extractor.btc.transaction_resolve_previous", true)
 	config.SetDefault("extractor.btc.transaction_pool_lifetime", "336h") // 14 days
 	config.SetDefault("extractor.btc.transaction_store_raw", true)
+	config.SetDefault("extractor.btc.transaction_mempool_refresh_interval", "1h")
+	config.SetDefault("extractor.btc.transaction_mempool_load_time", "10m")
 
 	config.SetDefault("extractor.btc.bhcache_lifetime", "0")
 
