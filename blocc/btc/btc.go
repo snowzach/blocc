@@ -299,7 +299,32 @@ func Extract(blockChainStore blocc.BlockChainStore, txBus blocc.TxBus) (*Extract
 				// This will attempt to resolve any of the transactions in the mempool missing data
 				err = e.ResolveTxInputs(Symbol, blocc.BlockIdMempool)
 				if err != nil {
-					e.logger.Errorf("ResolveTxInputs Error: %v", err)
+					e.logger.Fatalf("Could not empty the mempool:%v", err)
+				}
+				// Fetch the active mempool
+				e.RequestMemPool()
+
+				// Monitor the mempool and resolve any missing transaction inputs
+				for {
+					time.Sleep(time.Minute)
+					if !e.peer.Connected() {
+						// Ensure we're disconnected
+						e.peer.Disconnect()
+						// Reconnect
+						e.logger.Warn("Attempting peer reconnect")
+						err := e.Connect()
+						if err != nil {
+							e.logger.Errorw("Error reconnecting to peer. Sleeping/Retry", "error", err)
+							continue
+						}
+						// We're connected now - exit inner for loop and re-create the pool
+						break
+					}
+					// This will attempt to resolve any of the transactions in the mempool missing data
+					err = e.ResolveTxInputs(Symbol, blocc.BlockIdMempool)
+					if err != nil {
+						e.logger.Errorf("ResolveTxInputs Error: %v", err)
+					}
 				}
 			}
 		}()
