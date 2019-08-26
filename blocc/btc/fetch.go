@@ -131,6 +131,10 @@ func (e *Extractor) fetchBlockChain() {
 				case <-gotHeaders:
 				case <-time.After(5 * time.Minute):
 					e.logger.Infow("Timeout waiting for headers", "block", valid, "header", topHeader)
+					// This usually seems to be the fault of a dropped message. Disconnecting resets the state.
+					e.Disconnect()
+					time.Sleep(time.Minute)
+					// Continue and reconnect
 				}
 				continue
 			}
