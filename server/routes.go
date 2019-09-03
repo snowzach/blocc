@@ -8,6 +8,7 @@ import (
 
 	"git.coinninja.net/backend/blocc/embed"
 	"git.coinninja.net/backend/blocc/server/rpc"
+	"git.coinninja.net/backend/blocc/blocc"
 )
 
 // SetupRoutes configures all the routes for this service
@@ -42,8 +43,8 @@ func (s *Server) SetupRoutes() {
 	rpc.RegisterVersionRPCServer(s.grpcServer, s)
 	s.gwReg(rpc.RegisterVersionRPCHandlerFromEndpoint)
 
-	rpc.RegisterBloccRPCServer(s.grpcServer, s)
-	s.gwReg(rpc.RegisterBloccRPCHandlerFromEndpoint)
+	blocc.RegisterBloccRPCServer(s.grpcServer, s)
+	s.gwReg(blocc.RegisterBloccRPCHandlerFromEndpoint)
 
 	// Serve api-docs and swagger-ui
 	fs := http.FileServer(&assetfs.AssetFS{Asset: embed.Asset, AssetDir: embed.AssetDir, AssetInfo: embed.AssetInfo, Prefix: "public"})

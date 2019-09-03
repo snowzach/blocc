@@ -3,6 +3,7 @@ package blocc
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 
 	"github.com/gogo/protobuf/proto"
 )
@@ -141,6 +142,16 @@ func (txout *TxOut) DataValue(key string) string {
 		return value
 	}
 	return ""
+}
+
+// MarshalBinary used to store in cache
+func (mps *MemPoolStats) MarshalBinary() (data []byte, err error) {
+	return json.Marshal(mps)
+}
+
+// UnmarshalBinary is used to rtrieve from cache
+func (mps *MemPoolStats) UnmarshalBinary(data []byte) error {
+	return json.Unmarshal(data, mps)
 }
 
 /* Need to figue out why protobuf is still generating these with goproto_stringer = false
