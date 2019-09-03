@@ -8,17 +8,16 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"git.coinninja.net/backend/blocc/blocc"
-	"git.coinninja.net/backend/blocc/server/rpc"
 )
 
 // GetMemPoolStats returns mempool statistics
-func (s *Server) GetMemPoolStats(ctx context.Context, input *rpc.Symbol) (*rpc.MemPoolStats, error) {
+func (s *Server) GetMemPoolStats(ctx context.Context, input *blocc.Symbol) (*blocc.MemPoolStats, error) {
 
 	if input.Symbol == "" {
 		input.Symbol = s.defaultSymbol
 	}
 
-	mps := new(rpc.MemPoolStats)
+	mps := new(blocc.MemPoolStats)
 
 	// Check the cache
 	err := s.distCache.GetScan("mempool", "stats", mps)
@@ -51,7 +50,7 @@ func (s *Server) GetMemPoolStats(ctx context.Context, input *rpc.Symbol) (*rpc.M
 }
 
 // GetMemPoolStream streams mempool data
-func (s *Server) GetMemPoolStream(input *rpc.Symbol, server rpc.BloccRPC_GetMemPoolStreamServer) error {
+func (s *Server) GetMemPoolStream(input *blocc.Symbol, server blocc.BloccRPC_GetMemPoolStreamServer) error {
 
 	if input.Symbol == "" {
 		input.Symbol = s.defaultSymbol

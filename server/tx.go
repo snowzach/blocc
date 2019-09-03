@@ -7,7 +7,6 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"git.coinninja.net/backend/blocc/blocc"
-	"git.coinninja.net/backend/blocc/server/rpc"
 )
 
 const (
@@ -15,7 +14,7 @@ const (
 )
 
 // GetTransaction gets a transaction by Id
-func (s *Server) GetTransaction(ctx context.Context, input *rpc.Get) (*blocc.Tx, error) {
+func (s *Server) GetTransaction(ctx context.Context, input *blocc.Get) (*blocc.Tx, error) {
 
 	if input.Symbol == "" {
 		input.Symbol = s.defaultSymbol
@@ -45,7 +44,7 @@ func (s *Server) GetTransaction(ctx context.Context, input *rpc.Get) (*blocc.Tx,
 }
 
 // FindTransactions finds transaction by transaction ids
-func (s *Server) FindTransactions(ctx context.Context, input *rpc.Find) (*rpc.Transactions, error) {
+func (s *Server) FindTransactions(ctx context.Context, input *blocc.Find) (*blocc.Transactions, error) {
 
 	if input.Symbol == "" {
 		input.Symbol = s.defaultSymbol
@@ -76,14 +75,14 @@ func (s *Server) FindTransactions(ctx context.Context, input *rpc.Find) (*rpc.Tr
 		return nil, grpc.Errorf(codes.Internal, "Could not get blocks")
 	}
 
-	return &rpc.Transactions{
+	return &blocc.Transactions{
 		Transactions: txs,
 	}, nil
 
 }
 
 // FindTransactionsByAddresses finds transactions by addresses
-func (s *Server) FindTransactionsByAddresses(ctx context.Context, input *rpc.Find) (*rpc.Transactions, error) {
+func (s *Server) FindTransactionsByAddresses(ctx context.Context, input *blocc.Find) (*blocc.Transactions, error) {
 
 	if input.Symbol == "" {
 		input.Symbol = s.defaultSymbol
@@ -114,7 +113,7 @@ func (s *Server) FindTransactionsByAddresses(ctx context.Context, input *rpc.Fin
 		return nil, grpc.Errorf(codes.Internal, "Could not get blocks")
 	}
 
-	return &rpc.Transactions{
+	return &blocc.Transactions{
 		Transactions: txs,
 	}, nil
 

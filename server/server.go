@@ -8,12 +8,11 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
-
+	"github.com/blendle/zapdriver"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/cors"
@@ -28,6 +27,8 @@ import (
 	"github.com/tmc/grpc-websocket-proxy/wsproxy"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
@@ -66,34 +67,84 @@ func New(blockChainStore blocc.BlockChainStore, txBus blocc.TxBus, distCache sto
 	r.Use(middleware.Recoverer)
 	r.Use(render.SetContentType(render.ContentTypeJSON))
 
-	// Log Requests
+	// Log Requests - Use appropriate format depending on the encoding
 	if config.GetBool("server.log_requests") {
-		r.Use(func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				start := time.Now()
-				var requestID string
-				if reqID := r.Context().Value(middleware.RequestIDKey); reqID != nil {
-					requestID = reqID.(string)
-				}
-				ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-				next.ServeHTTP(ww, r)
-
-				latency := time.Since(start)
-
-				fields := []zapcore.Field{
-					zap.Int("status", ww.Status()),
-					zap.Duration("took", latency),
-					zap.String("remote", r.RemoteAddr),
-					zap.String("request", r.RequestURI),
-					zap.String("method", r.Method),
-					zap.String("package", "server.request"),
-				}
-				if requestID != "" {
-					fields = append(fields, zap.String("request-id", requestID))
-				}
-				zap.L().Info("API Request", fields...)
+		switch config.GetString("logger.encoding") {
+		case "stackdriver":
+			r.Use(func(next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					start := time.Now()
+					var requestID string
+					if reqID := r.Context().Value(middleware.RequestIDKey); reqID != nil {
+						requestID = reqID.(string)
+					}
+					ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+					// Parse the request
+					next.ServeHTTP(ww, r)
+					// Don't log the version endpoint, it's too noisy
+					if r.RequestURI == "/version" {
+						return
+					}
+					// If the remote IP is being proxied, use the real IP
+					remoteIP := r.Header.Get("X-Forwarded-For")
+					if remoteIP == "" {
+						remoteIP = r.RemoteAddr
+					}
+					zap.L().Info("HTTP Request", []zapcore.Field{
+						zapdriver.HTTP(&zapdriver.HTTPPayload{
+							RequestMethod: r.Method,
+							RequestURL:    r.RequestURI,
+							RequestSize:   strconv.FormatInt(r.ContentLength, 10),
+							Status:        ww.Status(),
+							ResponseSize:  strconv.Itoa(ww.BytesWritten()),
+							UserAgent:     r.UserAgent(),
+							RemoteIP:      remoteIP,
+							Referer:       r.Referer(),
+							Latency:       fmt.Sprintf("%fs", time.Since(start).Seconds()),
+							Protocol:      r.Proto,
+						}),
+						zap.String("request-id", requestID),
+					}...)
+				})
 			})
-		})
+		default:
+			r.Use(func(next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					start := time.Now()
+					var requestID string
+					if reqID := r.Context().Value(middleware.RequestIDKey); reqID != nil {
+						requestID = reqID.(string)
+					}
+					ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+					next.ServeHTTP(ww, r)
+
+					// Don't log the version endpoint, it's too noisy
+					if r.RequestURI == "/version" {
+						return
+					}
+
+					latency := time.Since(start)
+
+					fields := []zapcore.Field{
+						zap.Int("status", ww.Status()),
+						zap.Duration("took", latency),
+						zap.String("request", r.RequestURI),
+						zap.String("method", r.Method),
+						zap.String("package", "server.request"),
+					}
+					if requestID != "" {
+						fields = append(fields, zap.String("request-id", requestID))
+					}
+					// If we have an x-Forwarded-For header, use that for the remote
+					if forwardedFor := r.Header.Get("X-Forwarded-For"); forwardedFor != "" {
+						fields = append(fields, zap.String("remote", forwardedFor))
+					} else {
+						fields = append(fields, zap.String("remote", r.RemoteAddr))
+					}
+					zap.L().Info("HTTP Request", fields...)
+				})
+			})
+		}
 	}
 
 	// CORS Config

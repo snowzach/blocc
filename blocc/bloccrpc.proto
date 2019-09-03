@@ -1,12 +1,12 @@
 syntax="proto3";
-package rpc;
+package blocc;
 
 import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 
 import "google/api/annotations.proto";
-import "blocc/block.proto";
+import "blocc/blocc.proto";
 
-option go_package = "git.coinninja.net/backend/blocc/server/rpc";
+option go_package = "git.coinninja.net/backend/blocc/blocc";
 
 service BloccRPC {
 
@@ -179,13 +179,13 @@ message Find {
 // Blocks
 message Blocks {
     // Blocks
-    repeated blocc.Block blocks = 1;
+    repeated Block blocks = 1;
 }
 
 // Transactions
 message Transactions {
     // Transactions
-    repeated blocc.Tx transactions = 1;
+    repeated Tx transactions = 1;
 }
 
 // MemPoolStats
@@ -195,5 +195,6 @@ message MemPoolStats {
     // The count of transactions
     int64 count = 2;
     // The mempool size
-    int64 size = 3 [(gogoproto.customname) = "MPSize"];; 
+    int64 size = 3 [(gogoproto.customname) = "MPSize"];
 }
+

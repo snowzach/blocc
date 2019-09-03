@@ -9,7 +9,6 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"git.coinninja.net/backend/blocc/blocc"
-	"git.coinninja.net/backend/blocc/server/rpc"
 )
 
 const (
@@ -21,7 +20,7 @@ var (
 )
 
 // GetBlock returns a block by Id
-func (s *Server) GetBlock(ctx context.Context, input *rpc.Get) (*blocc.Block, error) {
+func (s *Server) GetBlock(ctx context.Context, input *blocc.Get) (*blocc.Block, error) {
 
 	if input.Symbol == "" {
 		input.Symbol = s.defaultSymbol
@@ -74,7 +73,7 @@ func (s *Server) GetBlock(ctx context.Context, input *rpc.Get) (*blocc.Block, er
 }
 
 // FindBlocks returns blocks by blockIds (with time and pagination)
-func (s *Server) FindBlocks(ctx context.Context, input *rpc.Find) (*rpc.Blocks, error) {
+func (s *Server) FindBlocks(ctx context.Context, input *blocc.Find) (*blocc.Blocks, error) {
 
 	if input.Symbol == "" {
 		input.Symbol = s.defaultSymbol
@@ -108,7 +107,7 @@ func (s *Server) FindBlocks(ctx context.Context, input *rpc.Find) (*rpc.Blocks, 
 		return nil, grpc.Errorf(codes.Internal, "Could not get blocks")
 	}
 
-	return &rpc.Blocks{
+	return &blocc.Blocks{
 		Blocks: blks,
 	}, nil
 
