@@ -1,18 +1,20 @@
-package blocc
+package btools
 
 import (
 	"sync"
 	"time"
+
+	"git.coinninja.net/backend/blocc/blocc"
 )
 
 type blockHeaderTxMonitorMemBlockHeader struct {
-	bh      *BlockHeader
+	bh      *blocc.BlockHeader
 	wait    chan struct{}
 	expires time.Time
 }
 
 type blockHeaderTxMonitorMemTx struct {
-	tx      *Tx
+	tx      *blocc.Tx
 	wait    chan struct{}
 	expires time.Time
 }
@@ -94,7 +96,7 @@ func closeIfOpen(c chan struct{}) {
 }
 
 // AddBlockHeader to the monitor
-func (btm *blockHeaderTxMonitorMem) AddBlockHeader(bh *BlockHeader, expires time.Duration) {
+func (btm *blockHeaderTxMonitorMem) AddBlockHeader(bh *blocc.BlockHeader, expires time.Duration) {
 	btm.Lock()
 	defer btm.Unlock()
 
@@ -103,7 +105,7 @@ func (btm *blockHeaderTxMonitorMem) AddBlockHeader(bh *BlockHeader, expires time
 		return
 	}
 
-	if bh.Height != HeightUnknown {
+	if bh.Height != blocc.HeightUnknown {
 		btm.lastBHWithHeightTime = time.Now()
 	}
 
@@ -148,7 +150,7 @@ func (btm *blockHeaderTxMonitorMem) AddBlockHeader(bh *BlockHeader, expires time
 }
 
 // AddTx to the monitor
-func (btm *blockHeaderTxMonitorMem) AddTx(tx *Tx, expires time.Duration) {
+func (btm *blockHeaderTxMonitorMem) AddTx(tx *blocc.Tx, expires time.Duration) {
 	btm.Lock()
 	defer btm.Unlock()
 
@@ -176,10 +178,10 @@ func (btm *blockHeaderTxMonitorMem) AddTx(tx *Tx, expires time.Duration) {
 }
 
 // WaitForBlockId uses the monitor to wait for a Block by Id with a timeout
-func (btm *blockHeaderTxMonitorMem) WaitForBlockId(blockId string, timeout time.Duration) <-chan *BlockHeader {
+func (btm *blockHeaderTxMonitorMem) WaitForBlockId(blockId string, timeout time.Duration) <-chan *blocc.BlockHeader {
 	btm.Lock()
 
-	c := make(chan *BlockHeader, 1)
+	c := make(chan *blocc.BlockHeader, 1)
 
 	// If shutdown
 	if btm.byBlockId == nil {
@@ -227,10 +229,10 @@ func (btm *blockHeaderTxMonitorMem) WaitForBlockId(blockId string, timeout time.
 }
 
 // WaitForBlockHeight uses the monitor to wait for a Block by height with a timeout
-func (btm *blockHeaderTxMonitorMem) WaitForBlockHeight(blockHeight int64, timeout time.Duration) <-chan *BlockHeader {
+func (btm *blockHeaderTxMonitorMem) WaitForBlockHeight(blockHeight int64, timeout time.Duration) <-chan *blocc.BlockHeader {
 	btm.Lock()
 
-	c := make(chan *BlockHeader, 1)
+	c := make(chan *blocc.BlockHeader, 1)
 
 	// If shutdown
 	if btm.byBlockHeight == nil {
@@ -278,11 +280,11 @@ func (btm *blockHeaderTxMonitorMem) WaitForBlockHeight(blockHeight int64, timeou
 }
 
 // WaitForTxId uses the monitor to wait for a transaction by Id with a timeout
-func (btm *blockHeaderTxMonitorMem) WaitForTxId(txId string, timeout time.Duration) <-chan *Tx {
+func (btm *blockHeaderTxMonitorMem) WaitForTxId(txId string, timeout time.Duration) <-chan *blocc.Tx {
 
 	btm.Lock()
 
-	c := make(chan *Tx, 1)
+	c := make(chan *blocc.Tx, 1)
 
 	// If shutdown
 	if btm.byTxId == nil {
@@ -340,7 +342,7 @@ func (btm *blockHeaderTxMonitorMem) ExpireBlockHeadersBelowBlockHeight(blockHeig
 	btm.Lock()
 	defer btm.Unlock()
 	for bh, b := range btm.byBlockHeight {
-		if bh < blockHeight && bh != HeightUnknown {
+		if bh < blockHeight && bh != blocc.HeightUnknown {
 			closeIfOpen(b.wait)
 			delete(btm.byBlockHeight, bh)
 			if b.bh != nil {
@@ -370,7 +372,7 @@ func (btm *blockHeaderTxMonitorMem) ExpireBlockHeadersHeightUnknown() {
 	btm.Lock()
 	defer btm.Unlock()
 	for blockId, b := range btm.byBlockId {
-		if b.bh != nil && b.bh.Height == HeightUnknown {
+		if b.bh != nil && b.bh.Height == blocc.HeightUnknown {
 			closeIfOpen(b.wait)
 			delete(btm.byBlockId, blockId)
 		}
