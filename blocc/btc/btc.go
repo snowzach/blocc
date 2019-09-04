@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 
 	"git.coinninja.net/backend/blocc/blocc"
+	"git.coinninja.net/backend/blocc/blocc/btools"
 	"git.coinninja.net/backend/blocc/conf"
 )
 
@@ -77,7 +78,7 @@ func Extract(blockChainStore blocc.BlockChainStore, txBus blocc.TxBus) (*Extract
 	e := &Extractor{
 		logger:          zap.S().With("package", "blocc.btc"),
 		blockChainStore: blockChainStore,
-		validBlockStore: blocc.NewValidBlockStoreMem(),
+		validBlockStore: btools.NewValidBlockStoreMem(),
 		txBus:           txBus,
 
 		blockFetch:                   txBus == nil,
@@ -92,14 +93,14 @@ func Extract(blockChainStore blocc.BlockChainStore, txBus blocc.TxBus) (*Extract
 		txStoreRaw:        config.GetBool("extractor.btc.transaction_store_raw"),
 		txResolvePrevious: config.GetBool("extractor.btc.transaction_resolve_previous"),
 
-		blockHeaderCache:         blocc.NewBlockHeaderCacheMem(),
+		blockHeaderCache:         btools.NewBlockHeaderCacheMem(),
 		blockHeaderCacheLifetime: config.GetDuration("extractor.btc.bhcache_lifetime"),
 
 		// If we forced the block chain height, we must assume there will be missing transactions
 		// If we don't ignore them, we will just retry the same blocks over and over
 		txIgnoreMissingPrevious: config.GetInt64("extractor.btc.block_start_height") > blocc.HeightUnknown,
 
-		blockHeaderTxMon:                 blocc.NewBlockHeaderTxMonitorMem(),
+		blockHeaderTxMon:                 btools.NewBlockHeaderTxMonitorMem(),
 		blockHeaderTxMonBlockWaitTimeout: config.GetDuration("extractor.btc.bhtxn_monitor_block_wait_timeout"),
 		blockHeaderTxMonBHLifetime:       config.GetDuration("extractor.btc.bhtxn_monitor_block_header_lifetime"),
 		blockHeaderTxMonTxLifetime:       config.GetDuration("extractor.btc.bhtxn_monitor_transaction_lifetime"),

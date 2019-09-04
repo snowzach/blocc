@@ -15,6 +15,9 @@ const (
 	HeightUnknown        = -1
 	BlockIdMempool       = "mempool"
 	BlockIdMempoolUpdate = "mempool-update"
+	BlockIdTip           = "tip"
+
+	SymbolBTC = "btc"
 
 	// Selectively include things when fetching block
 	BlockIncludeAll       = BlockIncludeHeader | BlockIncludeData | BlockIncludeRaw | BlockIncludeTxIds

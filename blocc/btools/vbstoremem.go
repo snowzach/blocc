@@ -1,24 +1,26 @@
-package blocc
+package btools
 
 import (
 	"sync"
+
+	"git.coinninja.net/backend/blocc/blocc"
 )
 
 type validBlockStoreMem struct {
-	store map[int64]*BlockHeader
-	valid *BlockHeader
+	store map[int64]*blocc.BlockHeader
+	valid *blocc.BlockHeader
 	sync.Mutex
 }
 
 func NewValidBlockStoreMem() *validBlockStoreMem {
 	return &validBlockStoreMem{
-		store: make(map[int64]*BlockHeader),
+		store: make(map[int64]*blocc.BlockHeader),
 		valid: nil,
 	}
 }
 
 // AddValidBlock considers the current header for height of the block chain
-func (vbsm *validBlockStoreMem) AddValidBlock(bh *BlockHeader) {
+func (vbsm *validBlockStoreMem) AddValidBlock(bh *blocc.BlockHeader) {
 
 	vbsm.Lock()
 	defer vbsm.Unlock()
@@ -58,15 +60,15 @@ func (vbsm *validBlockStoreMem) AddValidBlock(bh *BlockHeader) {
 }
 
 // SetValidBlock forces the current block chain height, it will also reset any current blocks
-func (vbsm *validBlockStoreMem) SetValidBlock(bh *BlockHeader) {
+func (vbsm *validBlockStoreMem) SetValidBlock(bh *blocc.BlockHeader) {
 	vbsm.Lock()
 	defer vbsm.Unlock()
-	vbsm.store = make(map[int64]*BlockHeader)
+	vbsm.store = make(map[int64]*blocc.BlockHeader)
 	vbsm.valid = bh
 }
 
 // GetValidBlock will get the current valid block
-func (vbsm *validBlockStoreMem) GetValidBlock() *BlockHeader {
+func (vbsm *validBlockStoreMem) GetValidBlock() *blocc.BlockHeader {
 	vbsm.Lock()
 	defer vbsm.Unlock()
 	return vbsm.valid

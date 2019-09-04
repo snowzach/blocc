@@ -1,0 +1,49 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "server/rpc/version.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/version": {
+      "get": {
+        "summary": "Get Version",
+        "description": "This fetches the version of this API",
+        "operationId": "Version",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcVersionResponse"
+            }
+          }
+        },
+        "tags": [
+          "VersionRPC"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "rpcVersionResponse": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "title": "The version of the API"
+        }
+      },
+      "title": "VersionResponse - Version message"
+    }
+  }
+}

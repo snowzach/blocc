@@ -1,7 +1,9 @@
-package blocc
+package btools
 
 import (
 	"time"
+
+	"git.coinninja.net/backend/blocc/blocc"
 )
 
 // This is a block monitor that returns nothing - it's really only for testing
@@ -14,18 +16,18 @@ func NewBlockMonitorNil() *BlockMonitorNil {
 }
 
 // This returns nil channel
-func (bhm *BlockMonitorNil) WaitForBlockId(blockId string, expires time.Time) <-chan *Block {
-	c := make(chan *Block)
+func (bhm *BlockMonitorNil) WaitForBlockId(blockId string, expires time.Time) <-chan *blocc.Block {
+	c := make(chan *blocc.Block)
 	close(c)
 	return c
 }
 
 // This returns nil channel
-func (bhm *BlockMonitorNil) WaitForBlockHeight(height int64, expires time.Time) <-chan *Block {
-	c := make(chan *Block)
+func (bhm *BlockMonitorNil) WaitForBlockHeight(height int64, expires time.Time) <-chan *blocc.Block {
+	c := make(chan *blocc.Block)
 	close(c)
 	return c
 }
 
 // This pretends to add a block but actually does nothing
-func (bhm *BlockMonitorNil) AddBlock(block *Block, expires time.Time) {}
+func (bhm *BlockMonitorNil) AddBlock(block *blocc.Block, expires time.Time) {}

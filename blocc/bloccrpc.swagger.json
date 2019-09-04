@@ -1,0 +1,1887 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "blocc/bloccrpc.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/addresses": {
+      "post": {
+        "summary": "Find transactions by Address and/or Time",
+        "operationId": "FindTransactionsByAddresses",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccTransactions"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/bloccFind"
+            }
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/addresses/{ids}": {
+      "get": {
+        "summary": "Find transactions by Address and/or Time",
+        "operationId": "FindTransactionsByAddresses3",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccTransactions"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "path",
+            "required": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "csv",
+            "minItems": 1
+          },
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc).",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "start_time",
+            "description": "The start time to search from (unix timestamp).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "end_time",
+            "description": "The end time to search to (unix timestamp).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "offset",
+            "description": "The offset of results to start from.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "count",
+            "description": "The number of results to return.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "include",
+            "description": "Extra flags for including fields\nSepecific values.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "data",
+            "description": "Include the data object.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "raw",
+            "description": "Include the raw tx or block in base64.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "tx",
+            "description": "Include transaction ids in block.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/blocks": {
+      "get": {
+        "summary": "Find Blocks by BlockIds and/or Time",
+        "operationId": "FindBlocks3",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccBlocks"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc).",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_time",
+            "description": "The start time to search from (unix timestamp).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "end_time",
+            "description": "The end time to search to (unix timestamp).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "offset",
+            "description": "The offset of results to start from.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "count",
+            "description": "The number of results to return.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "include",
+            "description": "Extra flags for including fields\nSepecific values.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "data",
+            "description": "Include the data object.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "raw",
+            "description": "Include the raw tx or block in base64.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "tx",
+            "description": "Include transaction ids in block.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      },
+      "post": {
+        "summary": "Find Blocks by BlockIds and/or Time",
+        "operationId": "FindBlocks",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccBlocks"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/bloccFind"
+            }
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/blocks/{id}": {
+      "get": {
+        "summary": "Get Block by Id",
+        "operationId": "GetBlock",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccBlock"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "description": "The Id to get",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc).",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "include",
+            "description": "Extra flags for including fields\nBitmask of fields to include (1=header).",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "data",
+            "description": "Include the data object.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "raw",
+            "description": "Include the raw tx or block in base64.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "tx",
+            "description": "Include transaction ids in block.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/legacy/mempool/stats": {
+      "get": {
+        "summary": "Get MemPool Stats",
+        "operationId": "GetMemPoolStats2",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccMemPoolStats"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc).",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/legacy/mempool/stream": {
+      "get": {
+        "summary": "Get Transaction Stream",
+        "operationId": "GetMemPoolStream2",
+        "responses": {
+          "200": {
+            "description": "(streaming responses)",
+            "schema": {
+              "$ref": "#/definitions/bloccTx"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc).",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/mempool/stats": {
+      "get": {
+        "summary": "Get MemPool Stats",
+        "operationId": "GetMemPoolStats",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccMemPoolStats"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc).",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/mempool/stream": {
+      "get": {
+        "summary": "Get Transaction Stream",
+        "operationId": "GetMemPoolStream",
+        "responses": {
+          "200": {
+            "description": "(streaming responses)",
+            "schema": {
+              "$ref": "#/definitions/bloccTx"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc).",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/transactions": {
+      "get": {
+        "summary": "Find transactions by TxId and/or Time",
+        "operationId": "FindTransactions3",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccTransactions"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc).",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_time",
+            "description": "The start time to search from (unix timestamp).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "end_time",
+            "description": "The end time to search to (unix timestamp).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "offset",
+            "description": "The offset of results to start from.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "count",
+            "description": "The number of results to return.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "include",
+            "description": "Extra flags for including fields\nSepecific values.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "data",
+            "description": "Include the data object.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "raw",
+            "description": "Include the raw tx or block in base64.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "tx",
+            "description": "Include transaction ids in block.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      },
+      "post": {
+        "summary": "Find transactions by TxId and/or Time",
+        "operationId": "FindTransactions",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccTransactions"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/bloccFind"
+            }
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/transactions/{id}": {
+      "get": {
+        "summary": "Get Transaction by TxId",
+        "operationId": "GetTransaction",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccTx"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "description": "The Id to get",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc).",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "include",
+            "description": "Extra flags for including fields\nBitmask of fields to include (1=header).",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "data",
+            "description": "Include the data object.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "raw",
+            "description": "Include the raw tx or block in base64.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "tx",
+            "description": "Include transaction ids in block.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/tx": {
+      "get": {
+        "summary": "Find transactions by TxId and/or Time",
+        "operationId": "FindTransactions7",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccTransactions"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc).",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_time",
+            "description": "The start time to search from (unix timestamp).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "end_time",
+            "description": "The end time to search to (unix timestamp).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "offset",
+            "description": "The offset of results to start from.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "count",
+            "description": "The number of results to return.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "include",
+            "description": "Extra flags for including fields\nSepecific values.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "data",
+            "description": "Include the data object.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "raw",
+            "description": "Include the raw tx or block in base64.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "tx",
+            "description": "Include transaction ids in block.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      },
+      "post": {
+        "summary": "Find transactions by TxId and/or Time",
+        "operationId": "FindTransactions5",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccTransactions"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/bloccFind"
+            }
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/tx/{id}": {
+      "get": {
+        "summary": "Get Transaction by TxId",
+        "operationId": "GetTransaction3",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccTx"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "description": "The Id to get",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc).",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "include",
+            "description": "Extra flags for including fields\nBitmask of fields to include (1=header).",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "data",
+            "description": "Include the data object.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "raw",
+            "description": "Include the raw tx or block in base64.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "tx",
+            "description": "Include transaction ids in block.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/{symbol}/addresses": {
+      "post": {
+        "summary": "Find transactions by Address and/or Time",
+        "operationId": "FindTransactionsByAddresses2",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccTransactions"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc)",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/bloccFind"
+            }
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/{symbol}/addresses/{ids}": {
+      "get": {
+        "summary": "Find transactions by Address and/or Time",
+        "operationId": "FindTransactionsByAddresses4",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccTransactions"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc)",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "ids",
+            "in": "path",
+            "required": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "csv",
+            "minItems": 1
+          },
+          {
+            "name": "start_time",
+            "description": "The start time to search from (unix timestamp).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "end_time",
+            "description": "The end time to search to (unix timestamp).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "offset",
+            "description": "The offset of results to start from.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "count",
+            "description": "The number of results to return.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "include",
+            "description": "Extra flags for including fields\nSepecific values.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "data",
+            "description": "Include the data object.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "raw",
+            "description": "Include the raw tx or block in base64.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "tx",
+            "description": "Include transaction ids in block.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/{symbol}/blocks": {
+      "get": {
+        "summary": "Find Blocks by BlockIds and/or Time",
+        "operationId": "FindBlocks4",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccBlocks"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc)",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_time",
+            "description": "The start time to search from (unix timestamp).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "end_time",
+            "description": "The end time to search to (unix timestamp).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "offset",
+            "description": "The offset of results to start from.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "count",
+            "description": "The number of results to return.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "include",
+            "description": "Extra flags for including fields\nSepecific values.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "data",
+            "description": "Include the data object.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "raw",
+            "description": "Include the raw tx or block in base64.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "tx",
+            "description": "Include transaction ids in block.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      },
+      "post": {
+        "summary": "Find Blocks by BlockIds and/or Time",
+        "operationId": "FindBlocks2",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccBlocks"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc)",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/bloccFind"
+            }
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/{symbol}/blocks/{id}": {
+      "get": {
+        "summary": "Get Block by Id",
+        "operationId": "GetBlock2",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccBlock"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc)",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "id",
+            "description": "The Id to get",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "include",
+            "description": "Extra flags for including fields\nBitmask of fields to include (1=header).",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "data",
+            "description": "Include the data object.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "raw",
+            "description": "Include the raw tx or block in base64.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "tx",
+            "description": "Include transaction ids in block.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/{symbol}/transactions": {
+      "get": {
+        "summary": "Find transactions by TxId and/or Time",
+        "operationId": "FindTransactions4",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccTransactions"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc)",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_time",
+            "description": "The start time to search from (unix timestamp).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "end_time",
+            "description": "The end time to search to (unix timestamp).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "offset",
+            "description": "The offset of results to start from.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "count",
+            "description": "The number of results to return.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "include",
+            "description": "Extra flags for including fields\nSepecific values.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "data",
+            "description": "Include the data object.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "raw",
+            "description": "Include the raw tx or block in base64.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "tx",
+            "description": "Include transaction ids in block.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      },
+      "post": {
+        "summary": "Find transactions by TxId and/or Time",
+        "operationId": "FindTransactions2",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccTransactions"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc)",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/bloccFind"
+            }
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/{symbol}/transactions/{id}": {
+      "get": {
+        "summary": "Get Transaction by TxId",
+        "operationId": "GetTransaction2",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccTx"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc)",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "id",
+            "description": "The Id to get",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "include",
+            "description": "Extra flags for including fields\nBitmask of fields to include (1=header).",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "data",
+            "description": "Include the data object.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "raw",
+            "description": "Include the raw tx or block in base64.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "tx",
+            "description": "Include transaction ids in block.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/{symbol}/tx": {
+      "get": {
+        "summary": "Find transactions by TxId and/or Time",
+        "operationId": "FindTransactions8",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccTransactions"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc)",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_time",
+            "description": "The start time to search from (unix timestamp).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "end_time",
+            "description": "The end time to search to (unix timestamp).",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "offset",
+            "description": "The offset of results to start from.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "count",
+            "description": "The number of results to return.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "include",
+            "description": "Extra flags for including fields\nSepecific values.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "data",
+            "description": "Include the data object.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "raw",
+            "description": "Include the raw tx or block in base64.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "tx",
+            "description": "Include transaction ids in block.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      },
+      "post": {
+        "summary": "Find transactions by TxId and/or Time",
+        "operationId": "FindTransactions6",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccTransactions"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc)",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/bloccFind"
+            }
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    },
+    "/{symbol}/tx/{id}": {
+      "get": {
+        "summary": "Get Transaction by TxId",
+        "operationId": "GetTransaction4",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bloccTx"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "symbol",
+            "description": "The coin symbol (default: btc)",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "id",
+            "description": "The Id to get",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "include",
+            "description": "Extra flags for including fields\nBitmask of fields to include (1=header).",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "data",
+            "description": "Include the data object.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "raw",
+            "description": "Include the raw tx or block in base64.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "tx",
+            "description": "Include transaction ids in block.",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          }
+        ],
+        "tags": [
+          "BloccRPC"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "bloccBlock": {
+      "type": "object",
+      "properties": {
+        "symbol": {
+          "type": "string",
+          "title": "Symbol"
+        },
+        "block_id": {
+          "type": "string",
+          "title": "Block Id"
+        },
+        "height": {
+          "type": "string",
+          "format": "int64",
+          "title": "Block Height"
+        },
+        "prev_block_id": {
+          "type": "string",
+          "title": "Previous Block Id"
+        },
+        "next_block_id": {
+          "type": "string",
+          "title": "Next Block Id - if it can be determined"
+        },
+        "time": {
+          "type": "string",
+          "format": "int64",
+          "title": "Block Time (unix timestamp)"
+        },
+        "tx_count": {
+          "type": "string",
+          "format": "int64",
+          "title": "Tx Count"
+        },
+        "size": {
+          "type": "string",
+          "format": "int64",
+          "title": "Size"
+        },
+        "status": {
+          "type": "string",
+          "title": "Status"
+        },
+        "incomplete": {
+          "type": "boolean",
+          "format": "boolean",
+          "title": "If data is missing to consider this block complete"
+        },
+        "tx_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Transaction Ids"
+        },
+        "raw": {
+          "type": "string",
+          "format": "byte",
+          "title": "Raw Block Data (base64)"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Block Misc Data"
+        },
+        "metric": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "format": "double"
+          },
+          "title": "Block Misc Metrics"
+        }
+      },
+      "title": "Block"
+    },
+    "bloccBlocks": {
+      "type": "object",
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/bloccBlock"
+          },
+          "title": "Blocks"
+        }
+      },
+      "title": "Blocks"
+    },
+    "bloccFind": {
+      "type": "object",
+      "properties": {
+        "symbol": {
+          "type": "string",
+          "title": "The coin symbol (default: btc)"
+        },
+        "ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "start_time": {
+          "type": "string",
+          "format": "int64",
+          "title": "The start time to search from (unix timestamp)"
+        },
+        "end_time": {
+          "type": "string",
+          "format": "int64",
+          "title": "The end time to search to (unix timestamp)"
+        },
+        "offset": {
+          "type": "string",
+          "format": "int64",
+          "title": "The offset of results to start from"
+        },
+        "count": {
+          "type": "string",
+          "format": "int64",
+          "title": "The number of results to return"
+        },
+        "include": {
+          "type": "integer",
+          "format": "int32",
+          "title": "Extra flags for including fields\nSepecific values"
+        },
+        "data": {
+          "type": "boolean",
+          "format": "boolean",
+          "title": "Include the data object"
+        },
+        "raw": {
+          "type": "boolean",
+          "format": "boolean",
+          "title": "Include the raw tx or block in base64"
+        },
+        "tx": {
+          "type": "boolean",
+          "format": "boolean",
+          "title": "Include transaction ids in block"
+        }
+      },
+      "title": "Find"
+    },
+    "bloccMemPoolStats": {
+      "type": "object",
+      "properties": {
+        "time": {
+          "type": "string",
+          "format": "int64",
+          "title": "The timestamp"
+        },
+        "count": {
+          "type": "string",
+          "format": "int64",
+          "title": "The count of transactions"
+        },
+        "size": {
+          "type": "string",
+          "format": "int64",
+          "title": "The mempool size"
+        }
+      },
+      "title": "MemPoolStats"
+    },
+    "bloccTransactions": {
+      "type": "object",
+      "properties": {
+        "transactions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/bloccTx"
+          },
+          "title": "Transactions"
+        }
+      },
+      "title": "Transactions"
+    },
+    "bloccTx": {
+      "type": "object",
+      "properties": {
+        "symbol": {
+          "type": "string",
+          "title": "Symbol"
+        },
+        "block_id": {
+          "type": "string",
+          "title": "Block Id"
+        },
+        "block_height": {
+          "type": "string",
+          "format": "int64",
+          "title": "Block Height"
+        },
+        "block_time": {
+          "type": "string",
+          "format": "int64",
+          "title": "Block Time"
+        },
+        "tx_id": {
+          "type": "string",
+          "title": "Transaction Id"
+        },
+        "height": {
+          "type": "string",
+          "format": "int64",
+          "title": "Transaction Height (in block)"
+        },
+        "time": {
+          "type": "string",
+          "format": "int64",
+          "title": "Transaction Time"
+        },
+        "size": {
+          "type": "string",
+          "format": "int64",
+          "title": "Size"
+        },
+        "incomplete": {
+          "type": "boolean",
+          "format": "boolean",
+          "title": "If data is missing to consider this tx complete"
+        },
+        "in": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/bloccTxIn"
+          },
+          "title": "Transaction Inputs"
+        },
+        "out": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/bloccTxOut"
+          },
+          "title": "Transaction Outputs"
+        },
+        "raw": {
+          "type": "string",
+          "format": "byte",
+          "title": "Raw Transaction Data (base64)"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Transaction Misc Data"
+        },
+        "metric": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "format": "double"
+          },
+          "title": "Transaction Misc Metric"
+        }
+      },
+      "title": "Tx - Transaction"
+    },
+    "bloccTxIn": {
+      "type": "object",
+      "properties": {
+        "tx_id": {
+          "type": "string",
+          "title": "Input/Previous Output Transaction Id"
+        },
+        "height": {
+          "type": "string",
+          "format": "int64",
+          "title": "Input Transaction Height Within Previous Output"
+        },
+        "out": {
+          "$ref": "#/definitions/bloccTxOut",
+          "title": "The Output of the previous transaction"
+        },
+        "raw": {
+          "type": "string",
+          "format": "byte",
+          "title": "Raw TxIn Data"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Transaction Input Misc Data"
+        },
+        "metric": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "format": "double"
+          },
+          "title": "Transaction Input Misc Metrics"
+        }
+      },
+      "title": "TxIn - Transaction Input"
+    },
+    "bloccTxOut": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "title": "The TrOut Type"
+        },
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Output addresses if they could be decoded"
+        },
+        "value": {
+          "type": "string",
+          "format": "int64",
+          "title": "The value of the transaction output"
+        },
+        "raw": {
+          "type": "string",
+          "format": "byte",
+          "title": "Raw TxOut Data (base64)"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Transaction Output Misc Data"
+        },
+        "metric": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "format": "double"
+          },
+          "title": "Transaction Output Misc Metrics"
+        }
+      },
+      "title": "TxOut - Transaction Output"
+    }
+  }
+}
