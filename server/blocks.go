@@ -56,7 +56,7 @@ func (s *Server) GetBlock(ctx context.Context, input *blocc.Get) (*blocc.Block, 
 		}
 		// Return the first one we find
 		blk = blks[0]
-	case input.Id == "tip":
+	case input.Id == blocc.BlockIdTip:
 		blk, err = s.blockChainStore.GetBlockTopByStatuses(input.Symbol, nil, include)
 	default: // Assume it's a block id
 		blk, err = s.blockChainStore.GetBlockByBlockId(input.Symbol, input.Id, include)

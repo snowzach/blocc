@@ -5,8 +5,5 @@ bindata.go
 server.crt
 server.key
 profile*.png
-*.pb.go
-*.pb.gw.go
-*.swagger.json
 embed/public/swagger-ui
 embed/public/api-docs

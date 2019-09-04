@@ -1,8 +1,10 @@
-package blocc
+package btools
 
 import (
 	"sync"
 	"time"
+
+	"git.coinninja.net/backend/blocc/blocc"
 )
 
 // This is a very simple, memory backed cache for storing and retrieveing BlockHeaders by BlockId
@@ -10,14 +12,14 @@ import (
 // While it does specify an expiration time, it's not actually used as it will be destroyed when the program stops
 
 type bhrec struct {
-	bh      *BlockHeader
+	bh      *blocc.BlockHeader
 	expires time.Time
 }
 
 type bhc struct {
 	cache  map[string]*bhrec
 	pcache map[string]*bhrec
-	top    *BlockHeader
+	top    *blocc.BlockHeader
 	sync.RWMutex
 }
 
@@ -49,22 +51,22 @@ func (bhcm *BlockHeaderCacheMem) Init(symbol string) error {
 }
 
 // GetTopBlockHeader returns the top block header
-func (bhcm *BlockHeaderCacheMem) GetTopBlockHeader(symbol string) (*BlockHeader, error) {
+func (bhcm *BlockHeaderCacheMem) GetTopBlockHeader(symbol string) (*blocc.BlockHeader, error) {
 	bhcm.RLock()
 	defer bhcm.RUnlock()
 	if b, ok := bhcm.symbols[symbol]; ok {
 		b.RLock()
 		defer b.RUnlock()
 		if b.top == nil {
-			return nil, ErrNotFound
+			return nil, blocc.ErrNotFound
 		}
 		return b.top, nil
 	}
-	return nil, ErrUnknownSymbol
+	return nil, blocc.ErrUnknownSymbol
 }
 
 // InsertBlocHeader inserts a block and registers as the top if applicable
-func (bhcm *BlockHeaderCacheMem) InsertBlockHeader(symbol string, bh *BlockHeader, expires time.Duration) error {
+func (bhcm *BlockHeaderCacheMem) InsertBlockHeader(symbol string, bh *blocc.BlockHeader, expires time.Duration) error {
 	bhcm.RLock()
 	defer bhcm.RUnlock()
 	if b, ok := bhcm.symbols[symbol]; ok {
@@ -81,11 +83,11 @@ func (bhcm *BlockHeaderCacheMem) InsertBlockHeader(symbol string, bh *BlockHeade
 		}
 		return nil
 	}
-	return ErrUnknownSymbol
+	return blocc.ErrUnknownSymbol
 }
 
 // GetBlockHeaderByBlockId fetches a block header by blockId
-func (bhcm *BlockHeaderCacheMem) GetBlockHeaderByBlockId(symbol string, blockId string) (*BlockHeader, error) {
+func (bhcm *BlockHeaderCacheMem) GetBlockHeaderByBlockId(symbol string, blockId string) (*blocc.BlockHeader, error) {
 	bhcm.RLock()
 	defer bhcm.RUnlock()
 	if b, ok := bhcm.symbols[symbol]; ok {
@@ -94,14 +96,14 @@ func (bhcm *BlockHeaderCacheMem) GetBlockHeaderByBlockId(symbol string, blockId 
 		if bh, ok := b.cache[blockId]; ok {
 			return bh.bh, nil
 		} else {
-			return nil, ErrNotFound
+			return nil, blocc.ErrNotFound
 		}
 	}
-	return nil, ErrUnknownSymbol
+	return nil, blocc.ErrUnknownSymbol
 }
 
 // GetBlockHeaderByPrevBlockId fetches a block header by prevBlockId
-func (bhcm *BlockHeaderCacheMem) GetBlockHeaderByPrevBlockId(symbol string, prevBlockId string) (*BlockHeader, error) {
+func (bhcm *BlockHeaderCacheMem) GetBlockHeaderByPrevBlockId(symbol string, prevBlockId string) (*blocc.BlockHeader, error) {
 	bhcm.RLock()
 	defer bhcm.RUnlock()
 	if b, ok := bhcm.symbols[symbol]; ok {
@@ -110,10 +112,10 @@ func (bhcm *BlockHeaderCacheMem) GetBlockHeaderByPrevBlockId(symbol string, prev
 		if bh, ok := b.pcache[prevBlockId]; ok {
 			return bh.bh, nil
 		} else {
-			return nil, ErrNotFound
+			return nil, blocc.ErrNotFound
 		}
 	}
-	return nil, ErrUnknownSymbol
+	return nil, blocc.ErrUnknownSymbol
 }
 
 // ExpireBlockHeaderBelowHeight removes any block headers below a certain height
@@ -136,5 +138,5 @@ func (bhcm *BlockHeaderCacheMem) ExpireBlockHeaderBelowHeight(symbol string, hei
 		}
 		return nil
 	}
-	return ErrUnknownSymbol
+	return blocc.ErrUnknownSymbol
 }
