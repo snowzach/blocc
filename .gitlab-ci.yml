@@ -92,6 +92,7 @@ test:
     - apk add --update-cache make git protobuf protobuf-dev curl
     - mkdir -p .cache
     - export GOPATH="$CI_PROJECT_DIR/.cache"
+    - export GOPRIVATE=git.coinninja.net
     - export PATH=$PATH:$GOPATH/bin
     - CGO_ENABLED=0 make test
 
