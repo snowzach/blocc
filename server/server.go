@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -30,8 +29,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 
-	"git.coinninja.net/backend/blocc/blocc"
-	"git.coinninja.net/backend/blocc/store"
+	"git.coinninja.net/backend/blocc/server/versionrpc/versionrpcserver"
 )
 
 // When starting to listen, we will reigster gateway functions
@@ -44,19 +42,10 @@ type Server struct {
 	server     *http.Server
 	grpcServer *grpc.Server
 	gwRegFuncs []gwRegFunc
-
-	defaultSymbol string
-	defaultCount  int
-
-	distCache    store.DistCache
-	cacheTimeout time.Duration
-
-	blockChainStore blocc.BlockChainStore
-	txBus           blocc.TxBus
 }
 
 // New will setup the server
-func New(blockChainStore blocc.BlockChainStore, txBus blocc.TxBus, distCache store.DistCache) (*Server, error) {
+func New() (*Server, error) {
 
 	// This router is used for http requests only, setup all of our middleware
 	r := chi.NewRouter()
@@ -79,13 +68,13 @@ func New(blockChainStore blocc.BlockChainStore, txBus blocc.TxBus, distCache sto
 	if config.GetBool("server.log_requests") {
 		switch config.GetString("logger.encoding") {
 		case "stackdriver":
-			unaryInterceptors = append(unaryInterceptors, loggerGRPCUnaryStackdriver())
-			streamInterceptors = append(streamInterceptors, loggerGRPCStreamStackdriver())
-			r.Use(loggerHTTPMiddlewareStackdriver())
+			unaryInterceptors = append(unaryInterceptors, loggerGRPCUnaryStackdriver(config.GetBool("server.log_requests_body"), config.GetStringSlice("server.log_disabled_grpc")))
+			streamInterceptors = append(streamInterceptors, loggerGRPCStreamStackdriver(config.GetStringSlice("server.log_disabled_grpc_stream")))
+			r.Use(loggerHTTPMiddlewareStackdriver(config.GetBool("server.log_requests_body"), config.GetStringSlice("server.log_disabled_http")))
 		default:
-			unaryInterceptors = append(unaryInterceptors, loggerGRPCUnaryDefault())
-			streamInterceptors = append(streamInterceptors, loggerGRPCStreamDefault())
-			r.Use(loggerHTTPMiddlewareDefault())
+			unaryInterceptors = append(unaryInterceptors, loggerGRPCUnaryDefault(config.GetBool("server.log_requests_body"), config.GetStringSlice("server.log_disabled_grpc")))
+			streamInterceptors = append(streamInterceptors, loggerGRPCStreamDefault(config.GetStringSlice("server.log_disabled_grpc_stream")))
+			r.Use(loggerHTTPMiddlewareDefault(config.GetBool("server.log_requests_body"), config.GetStringSlice("server.log_disabled_http")))
 		}
 	}
 
@@ -105,15 +94,6 @@ func New(blockChainStore blocc.BlockChainStore, txBus blocc.TxBus, distCache sto
 		router:     r,
 		grpcServer: g,
 		gwRegFuncs: make([]gwRegFunc, 0),
-
-		defaultSymbol: config.GetString("server.default_symbol"),
-		defaultCount:  config.GetInt("server.default_count"),
-
-		distCache:    distCache,
-		cacheTimeout: config.GetDuration("server.cache_duration"),
-
-		blockChainStore: blockChainStore,
-		txBus:           txBus,
 	}
 	s.server = &http.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -147,7 +127,7 @@ func NewHealthServer() (*Server, error) {
 	}
 
 	// Enable the version endpoint
-	s.router.Get("/version", s.GetVersion())
+	s.router.Get("/version", versionrpcserver.GetVersion())
 
 	// Every Route Returns OK
 	s.router.NotFound(func(w http.ResponseWriter, r *http.Request) {
@@ -261,9 +241,19 @@ func (s *Server) ListenAndServe() error {
 
 }
 
-// gwReg will save a gateway registration function for later when the server is started
-func (s *Server) gwReg(gwrf gwRegFunc) {
+// GwReg will save a gateway registration function for later when the server is started
+func (s *Server) GwReg(gwrf gwRegFunc) {
 	s.gwRegFuncs = append(s.gwRegFuncs, gwrf)
+}
+
+// GRPCServer will return the grpc server to allow functions to register themselves
+func (s *Server) GRPCServer() *grpc.Server {
+	return s.grpcServer
+}
+
+// Router will return the router to allow functions to register themselves
+func (s *Server) Router() chi.Router {
+	return s.router
 }
 
 // serverLogger is a multi-purpose logger used for server error messsages and websocket interceptor messages

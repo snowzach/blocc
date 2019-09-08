@@ -83,7 +83,7 @@ stages:
 
 test:
   stage: test
-  image: golang:1.12-alpine
+  image: golang:1.13-alpine
   cache:
     key: ${CI_COMMIT_REF_SLUG}
     paths:

@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "server/rpc/version.proto",
+    "title": "server/versionrpc/version.proto",
     "version": "version not set"
   },
   "schemes": [
@@ -17,14 +17,12 @@
   "paths": {
     "/version": {
       "get": {
-        "summary": "Get Version",
-        "description": "This fetches the version of this API",
         "operationId": "Version",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/rpcVersionResponse"
+              "$ref": "#/definitions/versionrpcVersionResponse"
             }
           }
         },
@@ -35,15 +33,13 @@
     }
   },
   "definitions": {
-    "rpcVersionResponse": {
+    "versionrpcVersionResponse": {
       "type": "object",
       "properties": {
         "version": {
-          "type": "string",
-          "title": "The version of the API"
+          "type": "string"
         }
-      },
-      "title": "VersionResponse - Version message"
+      }
     }
   }
 }

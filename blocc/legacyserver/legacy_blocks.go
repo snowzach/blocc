@@ -1,4 +1,4 @@
-package server
+package legacyserver
 
 import (
 	"fmt"
@@ -14,6 +14,7 @@ import (
 
 	"git.coinninja.net/backend/blocc/blocc"
 	"git.coinninja.net/backend/blocc/blocc/btc"
+	"git.coinninja.net/backend/blocc/server"
 	"git.coinninja.net/backend/blocc/store"
 )
 
@@ -82,11 +83,11 @@ func (s *Server) LegacyFindBlocks(method string) http.HandlerFunc {
 				} `json:"query"`
 			}
 			if err := render.DecodeJSON(r.Body, &postData); err != nil {
-				render.Render(w, r, ErrInvalidRequest(err))
+				render.Render(w, r, server.ErrInvalidRequest(err))
 				return
 			}
 			if len(postData.Query.Terms.Hash) == 0 {
-				render.Render(w, r, ErrInvalidRequest(fmt.Errorf("You need to provide at least one hash")))
+				render.Render(w, r, server.ErrInvalidRequest(fmt.Errorf("You need to provide at least one hash")))
 			}
 
 			page = 1
@@ -97,7 +98,7 @@ func (s *Server) LegacyFindBlocks(method string) http.HandlerFunc {
 		// Get blocks
 		blks, err := s.blockChainStore.FindBlocksByBlockIdsAndTime(btc.Symbol, blockIds, start, end, blocc.BlockIncludeHeader|blocc.BlockIncludeData|blocc.BlockIncludeTxIds, (page-1)*perPage, perPage)
 		if err != nil && err != blocc.ErrNotFound {
-			render.Render(w, r, ErrInvalidRequest(err))
+			render.Render(w, r, server.ErrInvalidRequest(err))
 			return
 		}
 
@@ -138,14 +139,14 @@ func (s *Server) LegacyGetBlock() http.HandlerFunc {
 		} else if id == "tip" {
 			blk, err = s.blockChainStore.GetBlockTopByStatuses(btc.Symbol, nil, blocc.BlockIncludeHeader|blocc.BlockIncludeData|blocc.BlockIncludeTxIds)
 		} else {
-			render.Render(w, r, ErrInvalidRequest(fmt.Errorf("Unable to determine block hash or block height")))
+			render.Render(w, r, server.ErrInvalidRequest(fmt.Errorf("Unable to determine block hash or block height")))
 			return
 		}
 		if err == blocc.ErrNotFound {
-			render.Render(w, r, ErrNotFound)
+			render.Render(w, r, server.ErrNotFound)
 			return
 		} else if err != nil && !blocc.IsValidationError(err) {
-			render.Render(w, r, ErrInvalidRequest(err))
+			render.Render(w, r, server.ErrInvalidRequest(err))
 			return
 		}
 
@@ -177,7 +178,7 @@ func (s *Server) LegacyGetBlockConfirmations() http.HandlerFunc {
 		// Get the block header
 		blk, err := s.blockChainStore.GetBlockByBlockId(btc.Symbol, id, blocc.BlockIncludeHeader)
 		if err == blocc.ErrNotFound {
-			render.Render(w, r, ErrNotFound)
+			render.Render(w, r, server.ErrNotFound)
 			return
 		} else if err != nil && !blocc.IsValidationError(err) {
 			render.Render(w, r, s.ErrInternalLog(err))

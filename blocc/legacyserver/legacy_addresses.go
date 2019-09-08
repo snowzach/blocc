@@ -1,4 +1,4 @@
-package server
+package legacyserver
 
 import (
 	"fmt"
@@ -11,6 +11,7 @@ import (
 
 	"git.coinninja.net/backend/blocc/blocc"
 	"git.coinninja.net/backend/blocc/blocc/btc"
+	"git.coinninja.net/backend/blocc/server"
 	"git.coinninja.net/backend/blocc/store"
 )
 
@@ -79,11 +80,11 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 				} `json:"query"`
 			}
 			if err := render.DecodeJSON(r.Body, &postData); err != nil {
-				render.Render(w, r, ErrInvalidRequest(err))
+				render.Render(w, r, server.ErrInvalidRequest(err))
 				return
 			}
 			if len(postData.Query.Terms.Address) == 0 {
-				render.Render(w, r, ErrInvalidRequest(fmt.Errorf("You need to provide at least one address")))
+				render.Render(w, r, server.ErrInvalidRequest(fmt.Errorf("You need to provide at least one address")))
 			}
 
 			//ES returns a collection of transactions that may contain one or more of the queried addresses. This can be 1 to many.
@@ -122,7 +123,7 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 		// Get transactions
 		txs, err := s.blockChainStore.FindTxsByAddressesAndTime(btc.Symbol, addresses, start, end, blocc.TxFilterAddressInputOutput, blocc.TxIncludeHeader|blocc.TxIncludeIn|blocc.TxIncludeOut, (page-1)*perPage, perPage)
 		if err != nil && err != blocc.ErrNotFound {
-			render.Render(w, r, ErrInvalidRequest(err))
+			render.Render(w, r, server.ErrInvalidRequest(err))
 			return
 		}
 		// fmt.Println(len(txs))
@@ -216,7 +217,7 @@ func (s *Server) LegacyGetAddressStats() http.HandlerFunc {
 		// Get the stats
 		ret.TxCount, ret.Received, ret.Spent, err = s.blockChainStore.GetAddressStats(btc.Symbol, ret.Address)
 		if err != nil && err != blocc.ErrNotFound {
-			render.Render(w, r, ErrInvalidRequest(err))
+			render.Render(w, r, server.ErrInvalidRequest(err))
 			return
 		}
 
