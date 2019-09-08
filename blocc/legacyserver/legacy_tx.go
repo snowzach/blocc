@@ -1,4 +1,4 @@
-package server
+package legacyserver
 
 import (
 	"fmt"
@@ -10,6 +10,7 @@ import (
 
 	"git.coinninja.net/backend/blocc/blocc"
 	"git.coinninja.net/backend/blocc/blocc/btc"
+	"git.coinninja.net/backend/blocc/server"
 )
 
 // LegacyGetTx fetches a transaction by Id
@@ -20,10 +21,10 @@ func (s *Server) LegacyGetTx() http.HandlerFunc {
 		id := chi.URLParam(r, "id")
 		tx, err := s.blockChainStore.GetTxByTxId(btc.Symbol, id, blocc.TxIncludeAll)
 		if err == blocc.ErrNotFound {
-			render.Render(w, r, ErrNotFound)
+			render.Render(w, r, server.ErrNotFound)
 			return
 		} else if err != nil {
-			render.Render(w, r, ErrInvalidRequest(err))
+			render.Render(w, r, server.ErrInvalidRequest(err))
 			return
 		}
 
@@ -50,10 +51,10 @@ func (s *Server) LegacyGetTxConfirmations() http.HandlerFunc {
 		id := chi.URLParam(r, "id")
 		tx, err := s.blockChainStore.GetTxByTxId(btc.Symbol, id, blocc.TxIncludeHeader)
 		if err == blocc.ErrNotFound {
-			render.Render(w, r, ErrNotFound)
+			render.Render(w, r, server.ErrNotFound)
 			return
 		} else if err != nil {
-			render.Render(w, r, ErrInvalidRequest(err))
+			render.Render(w, r, server.ErrInvalidRequest(err))
 			return
 		}
 
@@ -103,10 +104,10 @@ func (s *Server) LegacyGetTxStats() http.HandlerFunc {
 		// Need all but raw to repair tx with missing inputs
 		tx, err := s.blockChainStore.GetTxByTxId(btc.Symbol, id, blocc.TxIncludeAllButRaw)
 		if err == blocc.ErrNotFound {
-			render.Render(w, r, ErrNotFound)
+			render.Render(w, r, server.ErrNotFound)
 			return
 		} else if err != nil {
-			render.Render(w, r, ErrInvalidRequest(err))
+			render.Render(w, r, server.ErrInvalidRequest(err))
 			return
 		}
 
@@ -147,11 +148,11 @@ func (s *Server) LegacyFindTxIds() http.HandlerFunc {
 			} `json:"query"`
 		}
 		if err := render.DecodeJSON(r.Body, &postData); err != nil {
-			render.Render(w, r, ErrInvalidRequest(err))
+			render.Render(w, r, server.ErrInvalidRequest(err))
 			return
 		}
 		if len(postData.Query.Terms.TxID) == 0 {
-			render.Render(w, r, ErrInvalidRequest(fmt.Errorf("You need to provide at least one txid")))
+			render.Render(w, r, server.ErrInvalidRequest(fmt.Errorf("You need to provide at least one txid")))
 		}
 
 		// We only care about finding a list of the missing IDs (transactions expired or removed)
@@ -166,7 +167,7 @@ func (s *Server) LegacyFindTxIds() http.HandlerFunc {
 			// Get txs
 			txs, err := s.blockChainStore.GetTxsByTxIds(btc.Symbol, postData.Query.Terms.TxID, blocc.TxIncludeHeader)
 			if err != nil && err != blocc.ErrNotFound {
-				render.Render(w, r, ErrInvalidRequest(err))
+				render.Render(w, r, server.ErrInvalidRequest(err))
 				return
 			}
 
@@ -189,7 +190,7 @@ func (s *Server) LegacyFindTxIds() http.HandlerFunc {
 		// Get txs
 		txs, err := s.blockChainStore.GetTxsByTxIds(btc.Symbol, postData.Query.Terms.TxID, blocc.TxIncludeAll)
 		if err != nil && err != blocc.ErrNotFound {
-			render.Render(w, r, ErrInvalidRequest(err))
+			render.Render(w, r, server.ErrInvalidRequest(err))
 			return
 		}
 

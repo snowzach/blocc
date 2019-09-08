@@ -5,6 +5,8 @@ import (
 	"go.uber.org/zap"
 
 	"git.coinninja.net/backend/blocc/blocc"
+	"git.coinninja.net/backend/blocc/blocc/bloccserver"
+	"git.coinninja.net/backend/blocc/blocc/legacyserver"
 	"git.coinninja.net/backend/blocc/conf"
 	"git.coinninja.net/backend/blocc/server"
 	"git.coinninja.net/backend/blocc/store/esearch"
@@ -41,13 +43,28 @@ var (
 			// Redis will also implement the message bus
 			txBus = r.Prefix("mbus")
 
+			// Create the blocc GRPC Server
+			bs, err := bloccserver.New(blockChainStore, txBus, r.Prefix("scache"))
+			if err != nil {
+				logger.Fatalw("Could not create bloccserver", "error", err)
+			}
+
 			// Create the server
-			s, err := server.New(blockChainStore, txBus, r.Prefix("scache"))
+			s, err := server.New()
 			if err != nil {
 				logger.Fatalw("Could not create server",
 					"error", err,
 				)
 			}
+
+			blocc.RegisterBloccRPCServer(s.GRPCServer(), bs)
+			s.GwReg(blocc.RegisterBloccRPCHandlerFromEndpoint)
+
+			_, err = legacyserver.New(s.Router(), blockChainStore)
+			if err != nil {
+				logger.Fatalw("Could not create legacy server", "error", err)
+			}
+
 			err = s.ListenAndServe()
 			if err != nil {
 				logger.Fatalw("Could not start server",
