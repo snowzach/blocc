@@ -1,4 +1,4 @@
-package server
+package legacyserver
 
 import (
 	"fmt"
@@ -10,6 +10,7 @@ import (
 
 	"git.coinninja.net/backend/blocc/blocc"
 	"git.coinninja.net/backend/blocc/blocc/btc"
+	"git.coinninja.net/backend/blocc/server"
 )
 
 const (
@@ -40,10 +41,10 @@ func (s *Server) LegacyGetBlockChainInfo(path int) http.HandlerFunc {
 		// Get the top 3 blocks
 		blks, err := s.blockChainStore.FindBlocksByBlockIdsAndTime(btc.Symbol, nil, nil, nil, blocc.BlockIncludeHeader|blocc.BlockIncludeData, 0, 3)
 		if err == blocc.ErrNotFound {
-			render.Render(w, r, ErrNotFound)
+			render.Render(w, r, server.ErrNotFound)
 			return
 		} else if err != nil && !blocc.IsValidationError(err) {
-			render.Render(w, r, ErrInvalidRequest(err))
+			render.Render(w, r, server.ErrInvalidRequest(err))
 			return
 		} else if len(blks) != 3 {
 			render.Render(w, r, s.ErrInternalLog(fmt.Errorf("Did not get top 3 blocks when collecting fees")))

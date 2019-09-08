@@ -1,4 +1,4 @@
-package server
+package bloccserver
 
 import (
 	"context"
@@ -47,7 +47,8 @@ func (s *Server) GetBlock(ctx context.Context, input *blocc.Get) (*blocc.Block, 
 	// Determine what input is
 	switch {
 	case allNumbersRegexp.MatchString(input.Id):
-		blks, err := s.blockChainStore.FindBlocksByHeight(input.Symbol, cast.ToInt64(input.Id), include)
+		var blks []*blocc.Block
+		blks, err = s.blockChainStore.FindBlocksByHeight(input.Symbol, cast.ToInt64(input.Id), include)
 		if err != nil {
 			break
 		}

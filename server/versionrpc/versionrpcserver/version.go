@@ -1,4 +1,4 @@
-package server
+package versionrpcserver
 
 import (
 	"context"
@@ -8,20 +8,27 @@ import (
 	emptypb "github.com/golang/protobuf/ptypes/empty"
 
 	"git.coinninja.net/backend/blocc/conf"
-	"git.coinninja.net/backend/blocc/server/rpc"
+	"git.coinninja.net/backend/blocc/server/versionrpc"
 )
 
-// Version returns the version
-func (s *Server) Version(ctx context.Context, _ *emptypb.Empty) (*rpc.VersionResponse, error) {
+type versionRPCServer struct{}
 
-	return &rpc.VersionResponse{
+// New returns a new version server
+func New() versionrpc.VersionRPCServer {
+	return versionRPCServer{}
+}
+
+// Version returns the version
+func (vs versionRPCServer) Version(ctx context.Context, _ *emptypb.Empty) (*versionrpc.VersionResponse, error) {
+
+	return &versionrpc.VersionResponse{
 		Version: conf.GitVersion,
 	}, nil
 
 }
 
 // GetVersion returns the version git version of the code
-func (s *Server) GetVersion() http.HandlerFunc {
+func GetVersion() http.HandlerFunc {
 
 	// Simple version struct
 	type version struct {
