@@ -115,22 +115,19 @@ https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-snapshot
 
 Create a new backup repository in the elasticsearch cluster
 ```
-PUT _snapshot/blocc
+PUT /_snapshot/elasticsearch-backups-coinninja01
 {
-  "blocc" : {
-    "type" : "gcs",
-    "settings" : {
-      "bucket" : "cn-blockchain-es",
-      "client" : "default",
-      "base_path" : "blocc-dev"
-    }
+  "type": "gcs",
+  "settings": {
+    "bucket": "elasticsearch-backups-coinninja01",
+    "client": "default"
   }
 }
 ```
 
 #### Perform a snapshot - this will auto name the snapshot with the date
 ```
-PUT /_snapshot/blocc/%3Csnapshot-%7Bnow%2Fd%7D%3E
+PUT /_snapshot/elasticsearch-backups-coinninja01/%3Csnapshot-blocc-%7Bnow%2Fd%7D%3E
 {
   "indices": "blocc-*"
 }
@@ -138,18 +135,18 @@ PUT /_snapshot/blocc/%3Csnapshot-%7Bnow%2Fd%7D%3E
 
 #### Stop a snapshot
 ```
-DELETE /_snapshot/blocc/snapshot-2018.05.11
+DELETE /_snapshot/elasticsearch-backups-coinninja01/snapshot-blocc-2018.05.11
 ```
 
 #### Show snapshots in a repository
 ```
-GET /_snapshot/blocc/_all
+GET /_snapshot/elasticsearch-backups-coinninja01/_all
 ```
 
 #### Restore a snapshot
 You can restore a snapshot with replicas set to 0, this will increase the speed and then activate replicas once it's completed
 ```
-POST /_snapshot/blocc/snapshot-2018.05.11/_restore
+POST /_snapshot/elasticsearch-backups-coinninja01/snapshot-blocc-2018.05.11/_restore
 {
   "indices": "blocc-*",
   "index_settings": {

@@ -191,6 +191,7 @@ func (e *esearch) GetTxCountByBlockId(symbol string, blockId string, includeInco
 		Query(query).
 		FetchSource(false).
 		Size(0).
+		TrackTotalHits(true).
 		Do(e.ctx)
 	if err != nil {
 		return 0, err
@@ -375,6 +376,7 @@ func (e *esearch) GetMemPoolStats(symbol string) (int64, int64, error) {
 			elastic.NewTermQuery("block_id", blocc.BlockIdMempoolUpdate),
 		))).
 		Aggregation("size", elastic.NewSumAggregation().Field("size")).
+		TrackTotalHits(true).
 		Size(0).
 		Do(e.ctx)
 	if err != nil {
@@ -432,6 +434,7 @@ func (e *esearch) GetAddressStats(symbol string, address string) (int64, int64, 
 		Index(e.indexName(IndexTypeTx, symbol)).
 		Query(elastic.NewTermQuery("address", address)).
 		Aggregation("stats", agg).
+		TrackTotalHits(true).
 		Size(0).
 		Do(e.ctx)
 	if err != nil {
