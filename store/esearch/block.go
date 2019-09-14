@@ -183,6 +183,7 @@ func (e *esearch) GetBlockHeaderTopByStatuses(symbol string, statuses []string) 
 		Index(e.indexName(IndexTypeBlock, symbol)).
 		Sort("height", false).
 		Query(query).
+		TrackTotalHits(true).
 		FetchSourceContext(elastic.NewFetchSourceContext(true).Include("height").Include("block_id").Include("prev_block_id").Include("time")).
 		From(0).Size(1).Do(e.ctx)
 	if err != nil {
