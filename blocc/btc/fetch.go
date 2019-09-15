@@ -21,6 +21,7 @@ func (e *Extractor) fetchBlockChain() {
 	e.logger.Infow("Starting block extraction", "block_start_id", valid.BlockId, "block_start_height", valid.Height)
 
 	var lastValidBlockRequested string
+	var lastValidBlockRequestedRetries int
 	var lastValidateBlockChain = time.Now()
 
 	for !conf.Stop.Bool() {
@@ -165,6 +166,20 @@ func (e *Extractor) fetchBlockChain() {
 		// We need to disconnect and re-connect to reset the peers connection state
 		if valid.BlockId == lastValidBlockRequested {
 			e.logger.Warnw("Attempted to re-request the same blocks - restting peer connection", "from", valid)
+			lastValidBlockRequestedRetries++
+
+			// If we have retried the current block more than one, it likely means there is some issue with the blockChainStore
+			if lastValidBlockRequestedRetries > 1 {
+				// Reset the state, load the last valid block from disk
+				e.blockChainStore.FlushBlocks(Symbol)
+				e.blockChainStore.FlushTransactions(Symbol)
+				valid, err = e.blockChainStore.GetBlockHeaderTopByStatuses(Symbol, []string{blocc.StatusValid})
+				if err != nil {
+					e.logger.Fatalw("blockChainStore.GetBlockHeaderTopByStatuses", "error", err)
+				}
+				e.logger.Warnw("Blockchain Stalled. Reset Valid Block from blockChainStore", "from", valid)
+			}
+
 			// We had to re-request a chunk of blocks, clear everything out of the blockTxMonitor
 			e.blockHeaderTxMon.ExpireBlockHeadersAboveBlockHeight(valid.Height)
 			// This might be because something didn't make it to redis/the valid block store
@@ -174,6 +189,9 @@ func (e *Extractor) fetchBlockChain() {
 			e.Disconnect()
 			time.Sleep(time.Minute)
 			continue
+		} else {
+			// Reset the retries counter
+			lastValidBlockRequestedRetries = 0
 		}
 
 		// Make the block request
