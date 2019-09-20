@@ -28,22 +28,22 @@ stages:
   before_script:
     - echo -n "${__k8s_prod_sa_key}" | base64 -d > /tmp/key.json
     - gcloud auth activate-service-account --key-file /tmp/key.json
-    - gcloud config set project coinninja-prod
+    - gcloud config set project coinninja01
     - gcloud config set compute/zone us-central1-c
-    - gcloud container clusters get-credentials prod-01
+    - gcloud container clusters get-credentials coinninja01
     - kubectl config current-context
 
 .k8s-deploy: &branch-deploy
   script: |
-    export CURRENT_IMAGE=$(kubectl -n ${CI_ENVIRONMENT_SLUG}-public get deployment ${CI_PROJECT_NAME}-server -o=jsonpath='{$.spec.template.spec.containers[0].image}')
+    export CURRENT_IMAGE=$(kubectl -n ${CI_ENVIRONMENT_SLUG} get deployment ${CI_PROJECT_NAME}-server -o=jsonpath='{$.spec.template.spec.containers[0].image}')
     if [[ "${CURRENT_IMAGE}" != "${CONTAINER_BRANCH_IMAGE}" ]]; then
       echo "current image '${CURRENT_IMAGE}' is not '${CONTAINER_BRANCH_IMAGE}'"
-      kubectl -n ${CI_ENVIRONMENT_SLUG}-public set image deployment/${CI_PROJECT_NAME}-server ${CI_PROJECT_NAME}=${CONTAINER_BRANCH_IMAGE} --record
+      kubectl -n ${CI_ENVIRONMENT_SLUG} set image deployment/${CI_PROJECT_NAME}-server ${CI_PROJECT_NAME}=${CONTAINER_BRANCH_IMAGE} --record
     else
       echo "current image '${CURRENT_IMAGE}' is correct. Patching..."
-      kubectl --namespace=${CI_ENVIRONMENT_SLUG}-public patch deployment ${CI_PROJECT_NAME}-server -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}" --record
+      kubectl --namespace=${CI_ENVIRONMENT_SLUG} patch deployment ${CI_PROJECT_NAME}-server -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}" --record
     fi
-    kubectl -n ${CI_ENVIRONMENT_SLUG}-public rollout status deployment ${CI_PROJECT_NAME}-server -w
+    kubectl -n ${CI_ENVIRONMENT_SLUG} rollout status deployment ${CI_PROJECT_NAME}-server -w
   only:
     - branches@backend/blocc
   except:
@@ -52,15 +52,15 @@ stages:
 
 .k8s-deploy: &tag-deploy
   script: |
-    export CURRENT_IMAGE=$(kubectl -n ${CI_ENVIRONMENT_SLUG}-public get deployment ${CI_PROJECT_NAME}-server -o=jsonpath='{$.spec.template.spec.containers[0].image}')
+    export CURRENT_IMAGE=$(kubectl -n ${CI_ENVIRONMENT_SLUG} get deployment ${CI_PROJECT_NAME}-server -o=jsonpath='{$.spec.template.spec.containers[0].image}')
     if [[ "${CURRENT_IMAGE}" != "${CONTAINER_TAGGED_IMAGE}" ]]; then
       echo "current image '${CURRENT_IMAGE}' is not '${CONTAINER_TAGGED_IMAGE}'"
-      kubectl -n ${CI_ENVIRONMENT_SLUG}-public set image deployment/${CI_PROJECT_NAME}-server ${CI_PROJECT_NAME}=${CONTAINER_TAGGED_IMAGE} --record
+      kubectl -n ${CI_ENVIRONMENT_SLUG} set image deployment/${CI_PROJECT_NAME}-server ${CI_PROJECT_NAME}=${CONTAINER_TAGGED_IMAGE} --record
     else
       echo "current image '${CURRENT_IMAGE}' is correct. Patching..."
-      kubectl --namespace=${CI_ENVIRONMENT_SLUG}-public patch deployment ${CI_PROJECT_NAME}-server -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}" --record
+      kubectl --namespace=${CI_ENVIRONMENT_SLUG} patch deployment ${CI_PROJECT_NAME}-server -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}" --record
     fi
-    kubectl -n ${CI_ENVIRONMENT_SLUG}-public rollout status deployment ${CI_PROJECT_NAME}-server -w
+    kubectl -n ${CI_ENVIRONMENT_SLUG} rollout status deployment ${CI_PROJECT_NAME}-server -w
   only:
     - tags@backend/blocc
   except:
@@ -68,15 +68,15 @@ stages:
 
 .k8s-deploy: &latest-deploy
   script: |
-    export CURRENT_IMAGE=$(kubectl -n ${CI_ENVIRONMENT_SLUG}-public get deployment ${CI_PROJECT_NAME}-server -o=jsonpath='{$.spec.template.spec.containers[0].image}')
+    export CURRENT_IMAGE=$(kubectl -n ${CI_ENVIRONMENT_SLUG} get deployment ${CI_PROJECT_NAME}-server -o=jsonpath='{$.spec.template.spec.containers[0].image}')
     if [[ "${CURRENT_IMAGE}" != "${CONTAINER_LATEST_IMAGE}" ]]; then
       echo "current image '${CURRENT_IMAGE}' is not '${CONTAINER_LATEST_IMAGE}'"
-      kubectl -n ${CI_ENVIRONMENT_SLUG}-public set image deployment/${CI_PROJECT_NAME}-server ${CI_PROJECT_NAME}=${CONTAINER_LATEST_IMAGE} --record
+      kubectl -n ${CI_ENVIRONMENT_SLUG} set image deployment/${CI_PROJECT_NAME}-server ${CI_PROJECT_NAME}=${CONTAINER_LATEST_IMAGE} --record
     else
       echo "current image '${CURRENT_IMAGE}' is correct. Patching..."
-      kubectl --namespace=${CI_ENVIRONMENT_SLUG}-public patch deployment ${CI_PROJECT_NAME}-server -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}" --record
+      kubectl --namespace=${CI_ENVIRONMENT_SLUG} patch deployment ${CI_PROJECT_NAME}-server -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}" --record
     fi
-    kubectl -n ${CI_ENVIRONMENT_SLUG}-public rollout status deployment ${CI_PROJECT_NAME}-server -w
+    kubectl -n ${CI_ENVIRONMENT_SLUG} rollout status deployment ${CI_PROJECT_NAME}-server -w
   only:
     - develop@backend/blocc
 

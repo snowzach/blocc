@@ -54,6 +54,7 @@ It should create a load balancer for both elasticsearch and kibana that you can 
 Once the cluster is up, make sure you can reach Kibana. Go to the dev tools option on the left menu and apply some initial configuration
 
 This will configure the cluster to be a little faster at recovering if a node goes down. Using persistent disks should ensure there's not a lot of issues there however, if you wish to use both SSD and Persistent disk, the awareness.attributes will ensure that shards are balanced accross multiple node types. If you run SSD and PD, it will result in one copy of the shard being on each one.
+The other setting will ensure that if a node goes down it waits 5 minutes before re-allocating to not cause huge churn when a node is upgraded
 ```
 PUT /_cluster/settings
 {
@@ -72,6 +73,12 @@ PUT /_cluster/settings
         "max_bytes_per_sec" : "100mb"
       }
     }
+  }
+}
+PUT _all/_settings
+{
+  "settings": {
+    "index.unassigned.node_left.delayed_timeout": "5m"
   }
 }
 ```
@@ -155,7 +162,7 @@ POST /_snapshot/elasticsearch-backups-coinninja01/snapshot-blocc-2018.05.11/_res
 }
 ```
 
-# Update replicas
+# Update replicas and routing
 Once you have setup your cluster you can set the number of replicas an index has. Essentially replicas work just like raid. You can
 lose the same number of nodes as you have replicas.
 
