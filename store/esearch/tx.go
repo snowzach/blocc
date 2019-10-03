@@ -402,7 +402,7 @@ func (e *esearch) GetAddressStats(symbol string, address string) (int64, int64, 
 			for (input in params._source.in) {
 				if (input.out != null && input.out.address != null && input.out.address.length > 0) {
 					for (addr in input.out.address) {
-						if (addr == params.address) {
+						if (addr == params.address && input.out.value != null) {
 							state.input_value += input.out.value;
 						}
 					}
@@ -411,7 +411,7 @@ func (e *esearch) GetAddressStats(symbol string, address string) (int64, int64, 
 			for (output in params._source.out) {
 				if (output.address != null && output.address.length > 0) {
 					for (addr in output.address) {
-						if (addr == params.address) {
+						if (addr == params.address && output.value != null) {
 							state.output_value += output.value;
 						}
 					}
