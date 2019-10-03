@@ -86,12 +86,12 @@ func (s *Server) LegacyGetBlockChainInfo(path int) http.HandlerFunc {
 
 		// If test mode, return hard coded fees
 		if config.GetBool("server.legacy.btc_fee_testing") {
-			info.Fees.Min = 1
-			info.Fees.Avg = 2
-			info.Fees.Max = 3
-			info.Fees.Slow = 1.1
-			info.Fees.Med = 2.2
-			info.Fees.Fast = 3.1
+			info.Fees.Min = 1.1
+			info.Fees.Avg = 20.1
+			info.Fees.Max = 40.1
+			info.Fees.Slow = 1
+			info.Fees.Med = 20
+			info.Fees.Fast = 40
 
 			if path == blockChainInfoPathFees {
 				// Return just the fees portion
