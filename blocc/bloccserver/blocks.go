@@ -65,8 +65,8 @@ func (s *Server) GetBlock(ctx context.Context, input *blocc.Get) (*blocc.Block, 
 
 	if err == blocc.ErrNotFound {
 		return nil, grpc.Errorf(codes.NotFound, "Not Found")
-	} else if err != nil {
-		return nil, grpc.Errorf(codes.Internal, "Could not get block")
+	} else if err != nil && !blocc.IsValidationError(err) {
+		return nil, grpc.Errorf(codes.Internal, "Could not get block: %v", err)
 	}
 
 	return blk, nil
