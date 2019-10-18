@@ -18,10 +18,39 @@ func (e *Extractor) ValidateBlockChain(symbol string, stopAfter int64) (*blocc.B
 	}
 
 	// If there are invalid blocks, there is nothing to do, this needs to be fixed, exit out returning the highest valid block height we have
-	blks, err := e.blockChainStore.FindBlocksByStatusAndHeight(symbol, []string{blocc.StatusInvalid}, blocc.HeightUnknown, blocc.HeightUnknown, blocc.BlockIncludeHeader, 0, 1)
+	invalidBlks, err := e.blockChainStore.FindBlocksByStatusAndHeight(symbol, []string{blocc.StatusInvalid}, blocc.HeightUnknown, blocc.HeightUnknown, blocc.BlockIncludeHeader, 0, store.CountMax)
 	if err != nil && err != blocc.ErrNotFound {
-		return nil, fmt.Errorf("Could not blockChainStore.FindBlocksByStatusAndHeight: %v", err)
+		return lastValidBlockHeader, fmt.Errorf("Could not blockChainStore.FindBlocksByStatusAndHeight: %v", err)
 	} else if err == nil {
+		// Check the invalid blocks to see if there is another with the same height.
+		// If there is, delete the invalid block with it's transactions
+		for _, invalidBlk := range invalidBlks {
+			if invalidBlk.Height == blocc.HeightUnknown {
+				continue
+			}
+			// Get all blocks with the same height
+			blks, err := e.blockChainStore.FindBlocksByHeight(symbol, invalidBlk.Height, blocc.BlockIncludeHeader)
+			if err != nil && err != blocc.ErrNotFound {
+				return lastValidBlockHeader, fmt.Errorf("Could not blockChainStore.FindBlocksByHeight: %v", err)
+			}
+			// If there is more than one with the same height, delete the invalid block and it's transactions
+			// This is likely due to a block fork and it won't recover from here
+			if len(blks) > 1 {
+				for _, blk := range blks {
+					if blk.Status == blocc.StatusInvalid {
+						err = e.blockChainStore.DeleteBlockByBlockId(symbol, blk.BlockId)
+						if err != nil {
+							return lastValidBlockHeader, fmt.Errorf("Could not blockChainStore.DeleteBlockById:%v", err)
+						}
+						err = e.blockChainStore.DeleteTransactionsByBlockIdAndTime(symbol, blk.BlockId, nil, nil)
+						if err != nil {
+							return lastValidBlockHeader, fmt.Errorf("Could not blockChainStore.DeleteTransactionsByBlockIdAndTime:%v", err)
+						}
+					}
+				}
+			}
+		}
+
 		// We found an invalid block, we already have the last valid one, set the error
 		lastError = blocc.ErrInvalidBlock
 	}
@@ -34,7 +63,7 @@ func (e *Extractor) ValidateBlockChain(symbol string, stopAfter int64) (*blocc.B
 		if startHeight != blocc.HeightUnknown {
 			startHeight++ // Start searching after the lastValidBlockHeader
 		}
-		blks, err = e.blockChainStore.FindBlocksByStatusAndHeight(symbol, []string{blocc.StatusNew}, startHeight, stopAfter, blocc.BlockIncludeHeader, 0, store.CountMax)
+		blks, err := e.blockChainStore.FindBlocksByStatusAndHeight(symbol, []string{blocc.StatusNew}, startHeight, stopAfter, blocc.BlockIncludeHeader, 0, store.CountMax)
 		if err != nil && err != blocc.ErrNotFound {
 			lastError = fmt.Errorf("Could not blockChainStore.FindBlocksByStatusAndHeight: %v", err)
 			break
