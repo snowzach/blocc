@@ -154,7 +154,7 @@ development:latest-server:
     url: https://api.${CI_ENVIRONMENT_SLUG}.coinninja.net/api/v1/blocc/version
   variables:
     CONTAINER_NAME: $CI_REGISTRY_IMAGE:latest
-    GKE_APP_NAME: blocc
+    GKE_APP_NAME: blocc-server
     GKE_PROJECT: coinninja-dev
     GKE_INSTANCE: dev-01
   when: manual
