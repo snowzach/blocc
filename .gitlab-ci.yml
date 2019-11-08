@@ -254,7 +254,7 @@ production:tag-block:
   <<: *k8s
   stage: production
   environment:
-    name: prod
+    name: indexer
     url: https://api.${CI_ENVIRONMENT_SLUG}.coinninja.net/api/v1/blocc/version
   variables:
     CONTAINER_NAME: $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
@@ -269,7 +269,7 @@ production:tag-transaction:
   <<: *k8s
   stage: production
   environment:
-    name: prod
+    name: indexer
     url: https://api.${CI_ENVIRONMENT_SLUG}.coinninja.net/api/v1/blocc/version
   variables:
     CONTAINER_NAME: $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
