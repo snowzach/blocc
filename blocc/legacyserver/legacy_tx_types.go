@@ -83,7 +83,7 @@ func TxToLegacyTx(tx *blocc.Tx) *LegacyTx {
 	}
 
 	// If this tx is part of the mempool, return an empty hash and 0 for the height
-	if ltx.BlockHash == blocc.BlockIdMempool {
+	if ltx.BlockHash == blocc.BlockIdMempool || ltx.BlockHash == blocc.BlockIdMempoolUpdate {
 		ltx.BlockHeight = 0
 		ltx.BlockHash = ""
 	}
