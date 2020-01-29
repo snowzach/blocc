@@ -147,7 +147,7 @@ func (s *Server) LegacyFindAddressTransactions(method string) http.HandlerFunc {
 				}
 
 				// mobile apps are expecting this to be an empty string if it's unconfirmed
-				if at.BlockHash == blocc.BlockIdMempool {
+				if at.BlockHash == blocc.BlockIdMempool || at.BlockHash == blocc.BlockIdMempoolUpdate {
 					at.BlockHash = ""
 				}
 
